@@ -1,0 +1,7 @@
+*.png
+*.env
+*.jpg
+*jpeg
+*.csv
+*xlsx
+/node_modules
