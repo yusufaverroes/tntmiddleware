@@ -4,8 +4,9 @@
 // get process details such as printing progress
 
 
-import process from '../../../../index.js'
-import printer from '../../../../index.js'
+import  {printingProcess, printer} from '../../../../index.js';
+
+
 
 const setPrinterFormat = (req, res) => {
     let body = req.body
@@ -42,12 +43,31 @@ const stopPrinting = (req, res) => {
     res.status(200)
 }
 
-const startPrinting = (req, res) => {
-    printer.start()
-    res.status(200)
+const startPrinting = async (req, res) => {
+    
+    printingProcess.work_order_id = req.body.work_order_id
+    printingProcess.assignment_id = req.body.assignment_id
+    res.status(200).send({message:"is printing"})
+    await printingProcess.print()
 }
-const getInkStattus = (req, res) => {
-   let response = printer.send(PRINT_MASSGAE.InkStaus)
-    res.send(response)
+
+const printerDetails = (req, res) =>{
+    const workstationId = req.params.workstationId
+    if (printer.workstationId===workstationId){
+        res.status(200).send({
+            printer:printer.printerId,
+            ipAddress:printer.ip,
+            port:printer.port,
+            isOccupied:printer.isOccupied,
+            inkLevel:90,
+            templateId:0
+        })
+    }else{
+        res.status(404).send({message:"no printer assigned on this workstation"})
+    }
 }
-export default {setPrinterFormat,stopPrinting,startPrinting}
+// const getInkStattus = (req, res) => {
+//    let response = printer.send(PRINT_MASSGAE.InkStaus)
+//     res.send(response)
+// }
+export default {startPrinting, printerDetails}
