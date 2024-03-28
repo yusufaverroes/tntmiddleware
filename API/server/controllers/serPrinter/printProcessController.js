@@ -48,18 +48,17 @@ const startPrinting = async (req, res) => {
     printingProcess.work_order_id = req.body.work_order_id
     printingProcess.assignment_id = req.body.assignment_id
     res.status(200).send({message:"is printing"})
-    await printingProcess.print()
+    await printingProcess.print()// put the res here
 }
 
 const printerDetails = (req, res) =>{
     const workstationId = req.params.workstationId
     if (printer.workstationId===workstationId){
         res.status(200).send({
-            printer:printer.printerId,
             ipAddress:printer.ip,
             port:printer.port,
             isOccupied:printer.isOccupied,
-            inkLevel:90,
+            inkLevel:90, //TODO: get the real one
             templateId:0
         })
     }else{

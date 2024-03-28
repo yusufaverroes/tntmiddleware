@@ -28,6 +28,7 @@ export default class Rejection {
                             }
                             await sleep(50);
                             console.log("Box Pass");
+                            //TODO call the API
                         } else {
                             await sleep(70);
                             this.switch1.setValue(0);
@@ -42,6 +43,8 @@ export default class Rejection {
                                 switchOpened = false;
                             }
                             console.log("Rejected");
+                            //TODO call the API
+                            //
                             await sleep(50);
                         }
                     }

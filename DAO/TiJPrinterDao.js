@@ -37,7 +37,7 @@ export default class TIJPrinter {
         this.socket.connect(this.port, this.ip, () => {
             this.running = true;
             this.listenerThread = this.listenForResponses();
-            console.log("Printer Socket established");
+            console.log("Printer Socket established");// TODO: show more details
         });
 
         this.socket.on('error', (err) => {
@@ -85,7 +85,7 @@ export default class TIJPrinter {
             console.log(hexDataToSend);
     
             const hexBytes = Buffer.from(hexDataToSend, 'hex');
-            const checksum = this.calculate2sComplementChecksum(hexBytes);
+            const chifecksum = this.calculate2sComplementChecksum(hexBytes);
             const hexBytesWithChecksum = Buffer.concat([hexBytes, Buffer.from([checksum])]);
             console.log(hexBytesWithChecksum);
             this.socket.write(hexBytesWithChecksum);
