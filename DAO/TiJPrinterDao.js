@@ -26,11 +26,16 @@ export default class TIJPrinter {
         this.responseEvent = new EventEmitter();
         this.responseBuffer = null;
         this.isOccupied = false;
+        this.printCallback=null
 
         this.ESC = '1B';
         this.STX = '02';
         this.EXT = '03';
     }
+
+    setPrintCallBack(callback) {
+        this.printCallback = callback
+    } 
 
     connect() {
         this.socket = new net.Socket();
@@ -70,6 +75,10 @@ export default class TIJPrinter {
     handleUnsolicitedResponse(response) {
         this.printCount++;
         console.log(`print response: ${response.toString('utf8')}, PC: ${this.printCount}`);
+         if (this.printCallback) {
+        
+        this.printCallback();
+    }
         
 
     }
@@ -85,7 +94,7 @@ export default class TIJPrinter {
             console.log(hexDataToSend);
     
             const hexBytes = Buffer.from(hexDataToSend, 'hex');
-            const chifecksum = this.calculate2sComplementChecksum(hexBytes);
+            const checksum = this.calculate2sComplementChecksum(hexBytes);
             const hexBytesWithChecksum = Buffer.concat([hexBytes, Buffer.from([checksum])]);
             console.log(hexBytesWithChecksum);
             this.socket.write(hexBytesWithChecksum);

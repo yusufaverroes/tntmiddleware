@@ -47,6 +47,7 @@ import TIJPrinter from './DAO/TiJPrinterDao.js';
 import testProcess from './DAO/testProcess.js'
 import serCam from './DAO/serCamDao.js';
 import Queue from './utils/queue.js';
+
 const serQueue = new Queue();
 import  pkg from 'node-libgpiod';
 const { version, Chip, Line } = pkg;
@@ -60,9 +61,13 @@ rejector.start()
 
 const serialCamera =  new serCam('192.168.132.30',9004,1,serQueue, 100, 0.5, 5);
 serialCamera.connect()
-const printer = new TIJPrinter("192.168.132.20", 8010, "14")
+
+const printer = new TIJPrinter("192.168.132.20", 8010, "14","1")
 // const printer = new TIJPrinter("127.0.0.1", 3001, "14")
 printer.connect()
+await new Promise(resolve => setTimeout(resolve, 200));
+await printer.send("0B")
+await printer.send("0C")
 const printingProcess = new printProcess(printer)
 const testInstance = new testProcess()
 export  {printingProcess, testInstance,printer, serialCamera, serQueue}

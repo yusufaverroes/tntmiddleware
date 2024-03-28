@@ -142,11 +142,16 @@ export default class printProcess {
                 return false
             }
     }
+    callback(){
+        console.log("wkwkwk")
+    }
 
     async print() {
         this.printer.isOccupied = true;
+        this.printer.printCallback = this.callback
         this.db = await connect()
-
+        await this.printer.send("11") // start print
+        await this.printer.send("1E055152303031")
         this.fileNames = ["QR001", "QR002", "QR003", "QR004", "QR005", "QR006", "QR007", "QR008", "QR009", "QR010"];
         const div = Math.floor(this.fileNames.length / 2);
         this.lowest_id = await this.getSmallestId(this.db)
@@ -166,7 +171,8 @@ export default class printProcess {
         }
 
         console.log("you can start print, the print count is", this.printer.printCount);
-        this.printer.send("11") // start print
+
+
         let QRloop = await this.checkNGetCode(this.db,this.lowest_id+this.printer.printCount)
         console.log(this.lowest_id+this.printer.printCount)
         while (QRloop) {
@@ -227,7 +233,7 @@ export default class printProcess {
         while (this.printer.printCount<this.printPCtarget){
             await new Promise(resolve => setTimeout(resolve, 100));
         }
-        this.printer.send("12")
+        await this.printer.send("12")
         this.printer.printCount = 0;
         this.printer.isOccupied = false;
         console.log("ends");

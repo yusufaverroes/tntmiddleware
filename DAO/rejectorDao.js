@@ -32,7 +32,7 @@ export default class Rejection {
                         } else {
                             await sleep(70);
                             this.switch1.setValue(0);
-                            await sleep(20);
+                            await sleep(5);
                             let switchOpened = true;
                             while (switchOpened) {
                                 this.switch1.setValue(1);
