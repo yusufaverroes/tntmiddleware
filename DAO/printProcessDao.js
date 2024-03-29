@@ -93,6 +93,16 @@
 // }
 
 // export default printProcess;
+function dateToYYMMDD (originalDate){
+        var year = originalDate.getFullYear().toString().slice(2); // Get last two digits of the year
+        var month = (originalDate.getMonth() + 1).toString().padStart(2, '0'); // Month is zero-based, so add 1
+        var day = originalDate.getDate().toString().padStart(2, '0');
+
+        // Form the YYDDMM formatted string
+        var formattedDateString = year + day + month;
+        return formattedDateString
+}
+
 import { connect, close } from './db.js';
 export default class printProcess {
     constructor(printer) {
@@ -104,8 +114,27 @@ export default class printProcess {
         this.assignment_id=6
         this.printPCtarget=0
         this.lowest_id=null
+        this.details=null
+        this.fileNamesIdx=0
     }
-    
+    async getCodeDetails(db) {
+        try{
+        const work_order = await db.collection('work_order').findOne({work_order_id:this.work_order_id})
+        const product = await db.collection('product').findOne({product_id : work_order.product_id})
+
+        return {
+            NIE:product.nie,
+            BN:work_order.batch_no,
+            MD:dateToYYMMDD(work_order.expire_date), // TODO: change to manufacture_date when availabe
+            ED:dateToYYMMDD(work_order.expire_date), 
+            HET:product.het
+        }
+        
+        }catch(err){
+            console.log(err)
+        }
+    }
+        
     async getSmallestId(db) {
         const result = await db.collection('serialization').findOne(
             {
@@ -143,22 +172,44 @@ export default class printProcess {
             }
     }
     callback(){
-        console.log("wkwkwk")
+        this.db.collection('serialization')
+        .updateOne( { _id: (this.printer.printCount+this.lowest_id - 1)}, 
+                    { $set: { status : "TESTED" } }
+                    )
+        if(this.fileNamesIdx===this.fileNames.length-1){
+            this.fileNamesIdx=0
+        }else{
+            this.fileNamesIdx++
+        }
+        this.printer.send(`1E${this.convertToHex(this.fileNames[this.fileNamesIdx])}`)
+    }
+     convertToHex(str) {
+        // Get the length of the string in hexadecimal
+        const lengthHex = str.length.toString(16).padStart(2, '0');
+    
+        // Convert the string to hexadecimal
+        const hexString = Array.from(str, c => c.charCodeAt(0).toString(16)).join('');
+    
+        // Concatenate the length and the hexadecimal string
+        return lengthHex + hexString;
     }
 
     async print() {
+        this.db = await connect()
+        this.details = this.getCodeDetails(this.db)
         this.printer.isOccupied = true;
         this.printer.printCallback = this.callback
-        this.db = await connect()
+        
         await this.printer.send("11") // start print
         await this.printer.send("1E055152303031")
-        this.fileNames = ["QR001", "QR002", "QR003", "QR004", "QR005", "QR006", "QR007", "QR008", "QR009", "QR010"];
+        this.fileNames = ["QR001", "QR002", "QR003", "QR004", "QR005", "QR006", "QR007", "QR008", "QR009", "QR010"]; //TODO: get from printer
         const div = Math.floor(this.fileNames.length / 2);
         this.lowest_id = await this.getSmallestId(this.db)
         
         for (let idx = 0; idx < this.fileNames.length; idx++) { //filling all msg files
-            let QRcode = await this.checkNGetCode(this.db, this.lowest_id+idx+this.printer.printCount)
-            if (QRcode) {
+            let code = await this.checkNGetCode(this.db, this.lowest_id+idx+this.printer.printCount)
+            if (code) {
+                const QRcode = `(90)${this.details.NIE}(10)${this.details.BN}(17)${this.details.ED}(21)${code}`
                 const text = this.printer.createModuleText(QRcode, false);
                 const QR = this.printer.createModuleQR(text);
                 const msg = this.printer.createMsg(QR, this.fileNames[idx]);
@@ -188,8 +239,9 @@ export default class printProcess {
             let sendingCompleted = false;
             if (!sendingCompleted) {
                 for (let idx = 0; idx < div; idx++) {
-                    let QRcode = await this.checkNGetCode(this.db,this.lowest_id+idx + tempPC - 1+div)
-                    if (QRcode) {
+                    let code = await this.checkNGetCode(this.db,this.lowest_id+idx + tempPC - 1+div)
+                    if (code) {
+                        const QRcode = `(90)${this.details.NIE}(10)${this.details.BN}(17)${this.details.ED}(21)${code}`
                         const text = this.printer.createModuleText(QRcode, false);
                         const QR = this.printer.createModuleQR(text);
                         const msg = this.printer.createMsg(QR, this.fileNames[idx]);
@@ -215,8 +267,9 @@ export default class printProcess {
             console.log("sending second half, print count is:", this.printer.printCount);
             tempPC = this.printer.printCount;
             for (let idx = 0; idx < this.fileNames.slice(div).length; idx++) {
-                let QRcode = await this.checkNGetCode(this.db,this.lowest_id+idx + tempPC - 1+this.fileNames.slice(div).length)
-                if (QRcode) {
+                let code = await this.checkNGetCode(this.db,this.lowest_id+idx + tempPC - 1+this.fileNames.slice(div).length)
+                if (code) {
+                    const QRcode = `(90)${this.details.NIE}(10)${this.details.BN}(17)${this.details.ED}(21)${code}`
                     const text = this.printer.createModuleText(QRcode, false);
                     const QR = this.printer.createModuleQR(text);
                     const msg = this.printer.createMsg(QR, this.fileNames[div + idx]);
