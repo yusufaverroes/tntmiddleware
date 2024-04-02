@@ -8,13 +8,5 @@ export default function printRoute(app) {
         .post(printProcessController.startPrinting)
     app.route('/v1/printer/:workstationId')
         .get(printProcessController.printerDetails)
-    // app.route("/v1/printer/stop")
-    //     .post(printProcessController.stopPrinting)   
-    // app.route("/v1/printer/format")
-    //     .post(printProcessController.setPrinterFormat)
-    // app.route("/v1/printer/inkStatus")
-    //     .post(printProcessController.getInkStattus)
-    //canceled:
-    //current print infos/order status
 
 }

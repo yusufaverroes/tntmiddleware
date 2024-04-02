@@ -1,6 +1,5 @@
 import net from 'net';
 import { EventEmitter } from 'events';
-import { printingProcess } from '../index.js';
 
 
 
@@ -42,11 +41,11 @@ export default class TIJPrinter {
         this.socket.connect(this.port, this.ip, () => {
             this.running = true;
             this.listenerThread = this.listenForResponses();
-            console.log("Printer Socket established");// TODO: show more details
+            console.log(`Printer Socket established on port ${this.port} and IP ${this.ip}`);
         });
 
         this.socket.on('error', (err) => {
-            console.error("Connection error:", err);
+            console.error("Printer: Connection error:", err);
             this.running = false;
         });
     }
@@ -64,11 +63,11 @@ export default class TIJPrinter {
         });
 
         this.socket.on('error', (err) => {
-            console.error("Error listening for responses:", err);
+            console.error("Printer: Error listening for responses:", err);
         });
 
         this.socket.on('close', () => {
-            console.log("Listening stopped");
+            console.log("Printer: Listening stopped");
         });
     }
 
@@ -83,10 +82,10 @@ export default class TIJPrinter {
 
     }
 
-    send(hexData, reshandler = () =>{}) {
+    send(hexData, reshandler = () => {}) {
         return new Promise((resolve, reject) => {
             if (!this.running) {
-                reject(new Error("Not connected to a printer"));
+                reject("Not connected to a printer"); // Reject with error message directly
                 return;
             }
     
@@ -100,7 +99,7 @@ export default class TIJPrinter {
             this.socket.write(hexBytesWithChecksum);
     
             let timeout = setTimeout(() => {
-                reject(new Error("Timeout occurred. No response from slave address."));
+                reject("Timeout occurred. No response from slave address."); // Reject with error message directly
             }, 1000);
     
             // Event listener for when response is received
@@ -109,10 +108,11 @@ export default class TIJPrinter {
                 resolve(this.responseBuffer);
                 console.log("received");
                 console.log(this.responseBuffer)
-                reshandler(this.responseBuffer)
+                reshandler(this.responseBuffer);
             });
         });
     }
+    
     
 
     disconnect() {

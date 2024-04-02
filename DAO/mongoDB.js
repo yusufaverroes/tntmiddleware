@@ -1,14 +1,16 @@
-// db.js
+import { MongoClient } from 'mongodb';
 
 export default class MongoDB {
-    constructor(uri){
+    constructor(uri, databaseName){
         this.client = new MongoClient(uri)
+        this.db = null
+        this.databaseName = databaseName
     }
     async connect() {
         try {
             await this.client.connect();
             console.log('Connected to the database');
-            return client.db('trackNtrace');
+            this.client.db(this.databaseName)
         } catch (err) {
             console.error('Error connecting to the database:', err);
             throw err;
@@ -24,13 +26,11 @@ export default class MongoDB {
         }
     }
     
-    async  edit(id, field, newItem) {
+    async  update(collectionName, id, field, newItem) {
         try {
-            const db = client.db('trackNtrace');
-            const collection = db.collection('yourCollectionName'); // Replace 'yourCollectionName' with your actual collection name
-            const objectId = new ObjectID(id);
+            const collection = db.collection(collectionName);
             
-            const result = await collection.updateOne({ _id: objectId }, { $set: { [field]: newItem } });
+            const result = await collection.updateOne({ _id: id }, { $set: { [field]: newItem } });
             
             if (result.modifiedCount === 0) {
                 throw new Error('Document not found or field not modified');
