@@ -1,4 +1,5 @@
 function dateToYYMMDD (originalDate){
+        console.log(originalDate)
         var year = originalDate.getFullYear().toString().slice(2); // Get last two digits of the year
         var month = (originalDate.getMonth() + 1).toString().padStart(2, '0'); // Month is zero-based, so add 1
         var day = originalDate.getDate().toString().padStart(2, '0');
@@ -6,6 +7,9 @@ function dateToYYMMDD (originalDate){
         // Form the YYDDMM formatted string
         var formattedDateString = year + day + month;
         return formattedDateString
+}
+function removeSpacesAndNewlines(inputString) {
+    return inputString.replace(/\s+/g, '');
 }
 
 import { connect, close } from './db.js';
@@ -25,27 +29,37 @@ export default class printProcess {
 
     }
     async getCodeDetails(db) {
-        try{
-        const work_order = await db.collection('work_order').findOne({work_order_id:this.work_order_id})
-        const product = await db.collection('product').findOne({product_id : work_order.product_id})
-
-        return {
-            NIE:product.nie,
-            BN:work_order.batch_no,
-            MD:dateToYYMMDD(work_order.expire_date), // TODO: change to manufacture_date when availabe
-            ED:dateToYYMMDD(work_order.expire_date), 
-            HET:product.het
-        }
-        
-        }catch(err){
-            console.log(err)
+        try {
+            console.log(this.work_order_id)
+            const work_order = await db.collection('work_order').findOne({ _id: this.work_order_id });
+            if (!work_order) {
+                throw new Error('Work order not found');
+            }
+    
+            const product = await db.collection('product').findOne({ _id: work_order.product_id });
+            if (!product) {
+                throw new Error('Product not found');
+            }
+    
+            return {
+                NIE: product.nie,
+                BN: work_order.batch_no,
+                MD: dateToYYMMDD(work_order.manufacture_date), 
+                ED: dateToYYMMDD(work_order.expiry_date),
+                HET: product.het
+            };
+        } catch (err) {
+            console.error('Error getting code details:', err);
+            
+            return null;
         }
     }
+    
         
     async getSmallestId(db) {
         const result = await db.collection('serialization').findOne(
             {
-                status: this.sampling?"printing":"sampling",
+                status: this.sampling?"SAMPLING":"PRINTING",
                 work_order_id:this.work_order_id,
                 assignment_id:this.assignment_id
             },
@@ -67,21 +81,22 @@ export default class printProcess {
         const result = await db.collection('serialization').findOne( 
             {
                 _id:id,
-                status: this.sampling?"printing":"sampling",
+                status: this.sampling?"SAMPLING":"PRINTING",
                 work_order_id: this.work_order_id,
                 assignment_id: this.assignment_id
                 
             });
             if (result){
-                return result.full_code
+                return removeSpacesAndNewlines(result.full_code)
             }else {
                 return false
             }
     }
     callback(){
+        
         this.db.collection('serialization')
         .updateOne( { _id: (this.printer.printCount+this.lowest_id - 1)}, 
-                    { $set: { status : this.sampling?"printed":"sampled"} } // update the status of the printed code upon printing 
+                    { $set: { status : this.sampling?"SAMPLE_PRINTED":"PRINTED"} } // update the status of the printed code upon printing 
                     )
         if(this.fileNamesIdx===this.fileNames.length-1){
             this.fileNamesIdx=0
@@ -108,8 +123,10 @@ export default class printProcess {
         this.db = await connect() // TODO: use mongoDB.js
         this.details = this.getCodeDetails(this.db)
         this.printer.isOccupied = true;
-        this.printer.printCallback = this.callback
-        
+        this.printer.printCallback = ()=> {
+            this.callback()
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
         await this.printer.send("11") // start print
         //await this.printer.send("1E055152303031")
         this.fileNames = ["QR001", "QR002", "QR003", "QR004", "QR005", "QR006", "QR007", "QR008", "QR009", "QR010"]; //TODO: get from printer

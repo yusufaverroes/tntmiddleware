@@ -1,6 +1,9 @@
 import net from 'net';
 import sendDataToAPI from '../API/APICall/apiCall.js'
 
+function removeSpacesAndNewlines(inputString) {
+    return inputString.replace(/\s+/g, '');
+}
 
 export default class serCam {
     constructor(ip, port, workstationId, queue) {
@@ -46,7 +49,7 @@ export default class serCam {
     
         // Create and return the resulting object
         return {
-            code: code,
+            code: removeSpacesAndNewlines(code),
             accuracy: accuracy
         };
     }
@@ -69,12 +72,12 @@ export default class serCam {
 
     checkFormat(data) { //TODO : change reject status into more detail reasons
         const identifikasi_pattern = /^\(90\)[A-Za-z0-9]{1,16}\(91\)\d{1,10}$/;
-        const otentifikasi_pattern1 = /^\(90\)[A-Za-z0-9]{1,16}\(10\)[A-Za-z0-9]{1,20}\(17\)\d{1,6}\(21\)\d{1,20}$/;
-        const otentifikasi_pattern2 = /^\(01\)[A-Za-z0-9]{14}\(10\)[A-Za-z0-9]{1,20}\(17\)\d{1,6}\(21\)\d{1,20}$/;
+        const otentifikasi_pattern1 = /^\(90\)[A-Za-z0-9]{1,16}\(10\)[A-Za-z0-9]{1,20}\(17\)\d{1,6}\(21\)[A-Za-z0-9]{1,20}$/;
+        const otentifikasi_pattern2 = /^\(01\)[A-Za-z0-9]{14}\(10\)[A-Za-z0-9]{1,20}\(17\)\d{1,6}\(21\)[A-Za-z0-9]{1,20}$/;
         let result=false
         let reason=null
         let code = data.code
-        console.log(identifikasi_pattern.test(code) || otentifikasi_pattern1.test(code) || otentifikasi_pattern2.test(code))
+        console.log(identifikasi_pattern.test(code), otentifikasi_pattern1.test(code), otentifikasi_pattern2.test(code))
         if (identifikasi_pattern.test(code) || otentifikasi_pattern1.test(code) || otentifikasi_pattern2.test(code)) {
             console.log("Data is in correct format:", code);
             console.log(data.accuracy)
@@ -104,7 +107,7 @@ export default class serCam {
         
         const check = this.checkFormat(data)
         this.queue.enqueue(check.result)
-        await sendDataToAPI(`/v1/${check.code}/verify`,{ // TODO: what if its not reaching the API
+        await sendDataToAPI(`v1/work-order/1/serialization/code/${check.code}/verify`,{ // TODO: what if its not reaching the API
             accuracy_level:data.accuracy,
             result:check.result?"pass":"rejected"
         }) 

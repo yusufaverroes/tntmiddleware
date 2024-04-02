@@ -47,6 +47,7 @@ const startPrinting = async (req, res) => {
     
     printingProcess.work_order_id = req.body.work_order_id
     printingProcess.assignment_id = req.body.assignment_id
+    printingProcess.sampling = req.body.sampling?req.body.sampling:false;
     res.status(200).send({message:"is printing"})
     await printingProcess.print()// put the res here
 }
