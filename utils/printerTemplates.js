@@ -1,6 +1,6 @@
 import {printer} from '../index.js'
 
-export default  printerTemplate = [
+let printerTemplate = [
     function template1 (QRcode, details, fileName){
         const QRtext = printer.createModuleText(QRcode.full_code, false);
         const QR = printer.createModuleQR(QRtext);
@@ -11,12 +11,13 @@ export default  printerTemplate = [
         const HET = printer.createModuleText(`HET ${details.HET}`,true, 164,99, 0, 20, 0, "Arial");
         const SN = printer.createModuleText(`SN  ${QRcode.SN}`,true, 164, 129, 0, 20, 0, "Arial"); 
         const modules= [SN,QR,BPOM,BN,MD,ED,HET]
-        const msg = this.printer.createMsg(modules, this.fileNames[idx]);
+        const msg = printer.createMsg(modules, fileName);
         return msg
     },
     function template2 (x, y ,z){
-        console.log(x*y*z)
+        console.log(`${x} ${y} ${z}`)
     }
 
 
 ]
+export default printerTemplate

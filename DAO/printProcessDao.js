@@ -30,7 +30,6 @@ import { connect, close } from './db.js';
 export default class printProcess {
     constructor(printer) {
         this.printer = printer;
-        this.processId = "1"
         this.fileNames = [];
         this.db=null
         this.work_order_id=9
@@ -40,7 +39,9 @@ export default class printProcess {
         this.details=null
         this.fileNamesIdx=0
         this.sampling = false
+        this.workstationId="1"
         this.templateId=0
+        this.waitPrint=false
 
     }
     async getCodeDetails(db) {
@@ -48,12 +49,12 @@ export default class printProcess {
             console.log(this.work_order_id)
             const work_order = await db.collection('work_order').findOne({ _id: this.work_order_id });
             if (!work_order) {
-                throw new Error('Work order not found');
+                throw new Error(`Work order ${this.work_order_id} not found`);
             }
     
             const product = await db.collection('product').findOne({ _id: work_order.product_id });
             if (!product) {
-                throw new Error('Product not found');
+                throw new Error('Product not found'); // todo detail
             }
     
             return {
@@ -66,7 +67,7 @@ export default class printProcess {
         } catch (err) {
             console.error('Error getting code details:', err);
             
-            return null;
+            return err;
         }
     }
     
@@ -92,7 +93,7 @@ export default class printProcess {
             return null;
         }
     }
-    async checkNGetCode(db) {
+    async checkNGetCode(db, lastId) {
         const result = await db.collection('serialization').aggregate( 
             [
                 {
@@ -101,6 +102,9 @@ export default class printProcess {
                   }
                 }, {
                   '$match': {
+                    "_id": {
+                        "$gt": lastId
+                    },
                     'status': this.sampling?"SAMPLING":'PRINTING', 
                     'work_order_id': this.work_order_id, 
                     'assignment_id': this.assignment_id
@@ -110,15 +114,42 @@ export default class printProcess {
                 }
               ]).toArray();
             if (result.length==1){
-                return {full_code:result[0].full_code,SN:result[0].code}
+                return {id:result[0]._id,full_code:result[0].full_code,SN:result[0].code}
             }else {
-                return false
+                return false //no code found
             }
     }
-    callback(){
+    async checkNGetCode2(db) {
+        const result = await db.collection('serialization').aggregate( 
+            [
+                {
+                  '$sort': {
+                    '_id': 1
+                  }
+                }, {
+                  '$match': {
+                    'status': this.sampling?"SAMPLE_SENT_TO_PRINTER":'SENT_TO_PRINTER', 
+                    'work_order_id': this.work_order_id, 
+                    'assignment_id': this.assignment_id
+                  }
+                }, {
+                  '$limit': 1
+                }
+              ]).toArray();
+            if (result.length==1){
+                console.log(result[0]._id)
+                return {id:result[0]._id,full_code:result[0].full_code,SN:result[0].code}
+            }else {
+                return false //no code found
+            }
+    }
+    async callback(){
+        this.waitPrint=true;
+        const id = await this.checkNGetCode2(this.db)
+        console.log(`idnya yang harusnya ke update : ${id.id} kalo thisnya: ${this}` )
+        await this.db.collection('serialization')
         
-        this.db.collection('serialization')
-        .updateOne( { _id: (this.printer.printCount+this.lowest_id - 1)}, 
+        .updateOne( { _id: id.id}, //TODO change to aggregate to find the earliest printing
                     { $set: { status : this.sampling?"SAMPLE_PRINTED":"PRINTED"} } // update the status of the printed code upon printing 
                     )
         if(this.fileNamesIdx===this.fileNames.length-1){
@@ -138,54 +169,46 @@ export default class printProcess {
         // Concatenate the length and the hexadecimal string
         return lengthHex + hexString;
     }
-    async printChecks (){
-        
+    async printSetupChecks (){
+
     }
 
 
-    async print() {
+    async print(res) {
         try{
             this.db = await connect() // TODO: use mongoDB.js
+            this.details = null
             this.details = await this.getCodeDetails(this.db)
-           // console.log(this.details)
             this.printer.isOccupied = true;
-            this.printer.printCallback = ()=> {
-                this.callback()
+            this.printer.printCallback = async ()=> {
+                await this.callback()
             }
-            await new Promise(resolve => setTimeout(resolve, 1000));
             await this.printer.send("11") // start print
-            //await this.printer.send("1E055152303031")
             this.fileNames = ["QR001", "QR002", "QR003", "QR004", "QR005", "QR006", "QR007", "QR008", "QR009", "QR010"]; //TODO: get from printer
             const div = Math.floor(this.fileNames.length / 2);
             this.lowest_id = await this.getSmallestId(this.db)
-            
+            let lastId = 0
             for (let idx = 0; idx < this.fileNames.length; idx++) { // first step: filling all msg files
-                let QRcode = await this.checkNGetCode(this.db, this.lowest_id+idx+this.printer.printCount)
+                let QRcode = await this.checkNGetCode(this.db, lastId)
+                lastId = QRcode.id
+                
                 if (QRcode) {
-                    const QRtext = this.printer.createModuleText(QRcode.full_code, false);
-                    const QR = this.printer.createModuleQR(QRtext);
-                    const BPOM = this.printer.createModuleText("BPOM RI", true, 25, 4, 0, 24, 0, "Arial")
-                    const BN = this.printer.createModuleText(`BN  ${this.details.BN}`,true, 164, 0, 0, 20, 0, "Arial"); //const BNS = this.printer.createModuleText(this.details.BN,true, 217, 0, 0, 20, 0, "Arial")
-                    const MD = this.printer.createModuleText(`MD  ${this.details.MD}`,true, 164, 33, 0, 20, 0, "Arial"); //const MDS = this.printer.createModuleText(this.details.MD,true, 217, 33, 0, 20, 0, "Arial")
-                    const ED = this.printer.createModuleText(`ED  ${this.details.ED}`,true, 164, 66, 0, 20, 0, "Arial"); //const EDS = this.printer.createModuleText(this.details.ED,true, 217, 66, 0, 20, 0, "Arial")
-                    const HET = this.printer.createModuleText(`HET ${this.details.HET}`,true, 164,99, 0, 20, 0, "Arial"); //const HETS = this.printer.createModuleText(this.details.HET,true, 217, 99, 0, 20, 0, "Arial")
-                    const SN = this.printer.createModuleText(`SN  ${QRcode.SN}`,true, 164, 129, 0, 20, 0, "Arial"); //const SNS = this.printer.createModuleText(QRcode.SN,true, 217, 129, 0, 20, 0, "Arial")
-                    const modules= [SN,QR,BPOM,BN,MD,ED,HET]
-                    const msg = printerTemplate[this.printerTemplate]
+                    const msg =printerTemplate[this.templateId](QRcode,this.details,this.fileNames[idx])
                     console.log(`sending QR${this.lowest_id+idx + this.printer.printCount} to msg buffer ${this.fileNames[idx]}`);
-                    await this.printer.send(msg); 
+                    await this.printer.send(msg);// todo error
+                    await this.db.collection('serialization').updateOne({_id:QRcode.id},{$set:{status:"SENT_TO_PRINTER"}})
                     this.printPCtarget=this.printPCtarget+1
-                    //await new Promise(resolve => setTimeout(resolve, 1000));
                 } else {
-                    console.log(`idx = ${idx}, name len = ${this.fileNames.length}`)
+                    console.log(`id = ${QRcode.id}, name len = ${this.fileNames.length}`)
                     break;
                 }
             }
-    
-            console.log("you can start print, the print count is", this.printer.printCount);
-    
-    
-            let QRloop = await this.checkNGetCode(this.db,this.lowest_id+this.printer.printCount)
+            console.log("you can start print, the print count is", this.printer.printCount);        
+            res.status(200).send({message:`Printing Process with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id}, and template Id = ${this.templateId} started`})
+            
+            
+            
+            let QRloop = await this.checkNGetCode(this.db)
             console.log(this.lowest_id+this.printer.printCount)
             while (QRloop) {
                 console.log("waiting first half to be printed");
@@ -199,20 +222,15 @@ export default class printProcess {
                 tempPC = this.printer.printCount;
                 let sendingCompleted = false;
                 if (!sendingCompleted) {
+                    let lastId =0
                     for (let idx = 0; idx < div; idx++) {
-                        let QRcode = await this.checkNGetCode(this.db,this.lowest_id+idx + tempPC - 1+div)
+                        let QRcode = await this.checkNGetCode(this.db, lastId)
+                        lastId = QRcode.id
                         if (QRcode) {
-                            const QRtext = this.printer.createModuleText(QRcode.full_code, false);
-                            const QR = this.printer.createModuleQR(QRtext);
-                            const BPOM = this.printer.createModuleText("BPOM RI", true, 25, 4, 0, 24, 0, "Arial")
-                            const BN = this.printer.createModuleText("BN",true, 164, 0, 0, 20, 0, "Arial"); //const BNS = this.printer.createModuleText(this.details.BN,true, 217, 0, 0, 20, 0, "Arial")
-                            const MD = this.printer.createModuleText("MD",true, 164, 33, 0, 20, 0, "Arial"); //const MDS = this.printer.createModuleText(this.details.MD,true, 217, 33, 0, 20, 0, "Arial")
-                            const ED = this.printer.createModuleText("ED",true, 164, 66, 0, 20, 0, "Arial"); //const EDS = this.printer.createModuleText(this.details.ED,true, 217, 66, 0, 20, 0, "Arial")
-                            const HET = this.printer.createModuleText("HET",true, 164,99, 0, 20, 0, "Arial"); //const HETS = this.printer.createModuleText(this.details.HET,true, 217, 99, 0, 20, 0, "Arial")
-                            const SN = this.printer.createModuleText("SN",true, 164, 129, 0, 20, 0, "Arial"); const SNS = this.printer.createModuleText(QRcode.SN,true, 217, 129, 0, 20, 0, "Arial")
-                            const modules= [QR,BPOM,BN,BNS,MD,MDS,ED,EDS,HET,HETS,SN,SNS]
-                            const msg = this.printer.createMsg(modules, this.fileNames[idx]);
-                            console.log(`sending _id${this.lowest_id+idx + tempPC - 1+div} on msg ${this.fileNames[idx]}`);
+                            const msg = printerTemplate[this.templateId](QRcode,this.details,this.fileNames[idx])
+                            console.log(`sending QR${QRcode.id} to msg buffer ${this.fileNames[idx]}`);
+                            await this.printer.send(msg); 
+                            await this.db.collection('serialization').updateOne({_id:QRcode.id},{$set:{status:"SENT_TO_PRINTER"}})
                             this.printPCtarget=this.printPCtarget+1
                         } else {
                             break;
@@ -232,20 +250,15 @@ export default class printProcess {
     
                 console.log("sending second half, print count is:", this.printer.printCount); // Third Step
                 tempPC = this.printer.printCount;
+                let lastId=0
                 for (let idx = 0; idx < this.fileNames.slice(div).length; idx++) {
-                    let QRcode = await this.checkNGetCode(this.db,this.lowest_id+idx + tempPC - 1+this.fileNames.slice(div).length)
+                    let QRcode = await this.checkNGetCode(this.db, lastId)
+                    lastId = QRcode.id
                     if (QRcode) {
-                        const QRtext = this.printer.createModuleText(QRcode.full_code, false);
-                        const QR = this.printer.createModuleQR(QRtext);
-                        const BPOM = this.printer.createModuleText("BPOM RI", true, 25, 4, 0, 24, 0, "Arial")
-                        const BN = this.printer.createModuleText("BN",true, 164, 0, 0, 20, 0, "Arial"); const BNS = this.printer.createModuleText(this.details.BN,true, 217, 0, 0, 20, 0, "Arial")
-                        const MD = this.printer.createModuleText("MD",true, 164, 33, 0, 20, 0, "Arial"); const MDS = this.printer.createModuleText(this.details.MD,true, 217, 33, 0, 20, 0, "Arial")
-                        const ED = this.printer.createModuleText("ED",true, 164, 66, 0, 20, 0, "Arial"); const EDS = this.printer.createModuleText(this.details.ED,true, 217, 66, 0, 20, 0, "Arial")
-                        const HET = this.printer.createModuleText("HET",true, 164,99, 0, 20, 0, "Arial"); const HETS = this.printer.createModuleText(this.details.HET,true, 217, 99, 0, 20, 0, "Arial")
-                        const SN = this.printer.createModuleText("SN",true, 164, 129, 0, 20, 0, "Arial"); const SNS = this.printer.createModuleText(QRcode.SN,true, 217, 129, 0, 20, 0, "Arial")
-                        const modules= [QR,BPOM,BN,BNS,MD,MDS,ED,EDS,HET,HETS,SN,SNS]
-                        const msg = this.printer.createMsg(modules, this.fileNames[idx]);
-                        console.log(`sending _id${this.lowest_id+idx + tempPC - 1+this.fileNames.slice(div).length} on msg ${this.fileNames[div + idx]}`);
+                        const msg = printerTemplate[this.templateId](QRcode,this.details,this.fileNames[idx])
+                        console.log(`sending QR${QRcode.id} to msg buffer ${this.fileNames[idx]}`);
+                        await this.printer.send(msg);
+                        await this.db.collection('serialization').updateOne({_id:QRcode.id},{$set:{status:"SENT_TO_PRINTER"}}) 
                         this.printPCtarget=this.printPCtarget+1
                     } else {
                         break;

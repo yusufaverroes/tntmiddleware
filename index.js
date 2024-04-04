@@ -15,7 +15,7 @@ process.on('unhandledRejection', (err) => {
     // Handle the error gracefully or log it
 });
 const db = new MongoDB(process.env.MONGODB_URI, process.env.DATABASE_NAME)
-//db.connect()
+db.connect()
 const { version, Chip, Line } = pkg;
 global.chip = new Chip(4)
 global.output = new Line(chip, process.env.REJECTOR_OUTPUT_PIN); output.requestOutputMode();

@@ -107,6 +107,7 @@ export default class serCam {
         
         const check = this.checkFormat(data)
         this.queue.enqueue(check.result)
+        await new Promise(resolve => setTimeout(resolve, 1000)); 
         await sendDataToAPI(`v1/work-order/1/serialization/code/${check.code}/verify`,{ // TODO: what if its not reaching the API
             accuracy_level:data.accuracy,
             result:check.result?"pass":"rejected"
