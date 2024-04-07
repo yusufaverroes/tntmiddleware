@@ -5,7 +5,7 @@ dotenv.config();
 
 export default async function sendDataToAPI(route, data) {
   try {
-    const response = await axios.post('http://192.168.1.25:777/'+route, data, 
+    const response = await axios.post('http://192.168.1.23:777/'+route, data, 
     {
       headers: {
       'X-AUTH-BASIC': 'Basic c2VyYXRvbmljOjUzcjR0MG4xYw=='

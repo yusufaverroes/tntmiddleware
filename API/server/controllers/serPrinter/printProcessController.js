@@ -5,7 +5,7 @@
 
 
 import  {printingProcess, printer} from '../../../../index.js';
-
+import printerTemplate from '../../../../utils/printerTemplates.js';
 
 
 const setPrinterFormat = (req, res) => {
@@ -44,12 +44,34 @@ const stopPrinting = (req, res) => {
 }
 
 const startPrinting = async (req, res) => {
-    
-    printingProcess.work_order_id = req.body.work_order_id
-    printingProcess.assignment_id = req.body.assignment_id
-    printingProcess.sampling = req.body.sampling?req.body.sampling:false;
-    res.status(200).send({message:"is printing"})
-    await printingProcess.print()// put the res here
+    let missingBody=""
+    if(req.body.work_order_id){
+        printingProcess.work_order_id = req.body.work_order_id
+    }else{missingBody="work_order_id"}
+    if(req.body.assignment_id){
+        printingProcess.assignment_id = req.body.assignment_id
+    }else{missingBody=missingBody+" and assignment_id"}
+
+    if (missingBody!=""){
+        return res.status(400).send({message: `Missing mandatory payload in request body. (${missingBody})`})
+    }
+    if (printingProcess.workstationId!==req.params.workstationId){
+        console.log(workstationId)
+        return res.status(409).send({message: `The work station id not found/recognize  `})
+    }
+    if((req.body.templateId) && req.body.templateId >printerTemplate.length){
+        return res.status(404).send({message: `The templateId=${req.body.templateId} does not exist`})
+    }
+    if (printingProcess.isOccupied===true){
+        return res.status(409).send({message: `This is printer is occupied for workOrderId=${printingProcess.work_order_id} and assignmentId =${printingProcess.assignment_id}`})
+    }
+    //TODO : ink leve is too low
+    if (printer.running===false){
+        return res.status(500).send({message: "Cannot connect to the printer" })
+    }
+    // await printingProcess.check()
+    //res....
+    await printingProcess.print(res)
 }
 
 const printerDetails = (req, res) =>{

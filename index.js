@@ -33,7 +33,7 @@ const printer = new TIJPrinter(process.env.TiJPrinter_IP, process.env.TiJPrinter
 
 printer.connect()
 
-// await new Promise(resolve => setTimeout(resolve, 200));
+await new Promise(resolve => setTimeout(resolve, 1000));
 // await printer.send("0B") // TODO: remove or not (reset print count)
 // await printer.send("0C")
 const printingProcess = new printProcess(printer)

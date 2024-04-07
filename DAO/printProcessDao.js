@@ -8,15 +8,28 @@ function dateToYYMMDD (originalDate){
         var formattedDateString = year + day + month;
         return formattedDateString
 }
+function formatDate(date) {
+    const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = months[date.getMonth()];
+    const year = String(date.getFullYear()).slice(-2);
+
+    return `${day} ${month} ${year}`;
+}
 function removeSpacesAndNewlines(inputString) {
     return inputString.replace(/\s+/g, '');
 }
-
+function formatCurrencyIDR(amount, locale = 'id-ID') {
+    return new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency: 'IDR'
+    }).format(amount);
+}
+import printerTemplate from '../utils/printerTemplates.js';
 import { connect, close } from './db.js';
 export default class printProcess {
     constructor(printer) {
         this.printer = printer;
-        this.processId = "1"
         this.fileNames = [];
         this.db=null
         this.work_order_id=9
@@ -26,6 +39,9 @@ export default class printProcess {
         this.details=null
         this.fileNamesIdx=0
         this.sampling = false
+        this.workstationId="1"
+        this.templateId=0
+        this.waitPrint=false
 
     }
     async getCodeDetails(db) {
@@ -33,25 +49,25 @@ export default class printProcess {
             console.log(this.work_order_id)
             const work_order = await db.collection('work_order').findOne({ _id: this.work_order_id });
             if (!work_order) {
-                throw new Error('Work order not found');
+                throw new Error(`Work order ${this.work_order_id} not found`);
             }
     
             const product = await db.collection('product').findOne({ _id: work_order.product_id });
             if (!product) {
-                throw new Error('Product not found');
+                throw new Error('Product not found'); // todo detail
             }
     
             return {
                 NIE: product.nie,
                 BN: work_order.batch_no,
-                MD: dateToYYMMDD(work_order.manufacture_date), 
-                ED: dateToYYMMDD(work_order.expiry_date),
-                HET: product.het
+                MD: formatDate(work_order.manufacture_date), 
+                ED: formatDate(work_order.expiry_date),
+                HET: formatCurrencyIDR(product.het)
             };
         } catch (err) {
             console.error('Error getting code details:', err);
             
-            return null;
+            return err;
         }
     }
     
@@ -77,25 +93,63 @@ export default class printProcess {
             return null;
         }
     }
-    async checkNGetCode(db,id ) {
-        const result = await db.collection('serialization').findOne( 
-            {
-                _id:id,
-                status: this.sampling?"SAMPLING":"PRINTING",
-                work_order_id: this.work_order_id,
-                assignment_id: this.assignment_id
-                
-            });
-            if (result){
-                return removeSpacesAndNewlines(result.full_code)
+    async checkNGetCode(db, lastId) {
+        const result = await db.collection('serialization').aggregate( 
+            [
+                {
+                  '$sort': {
+                    '_id': 1
+                  }
+                }, {
+                  '$match': {
+                    "_id": {
+                        "$gt": lastId
+                    },
+                    'status': this.sampling?"SAMPLING":'PRINTING', 
+                    'work_order_id': this.work_order_id, 
+                    'assignment_id': this.assignment_id
+                  }
+                }, {
+                  '$limit': 1
+                }
+              ]).toArray();
+            if (result.length==1){
+                return {id:result[0]._id,full_code:result[0].full_code,SN:result[0].code}
             }else {
-                return false
+                return false //no code found
             }
     }
-    callback(){
+    async checkNGetCode2(db) {
+        const result = await db.collection('serialization').aggregate( 
+            [
+                {
+                  '$sort': {
+                    '_id': 1
+                  }
+                }, {
+                  '$match': {
+                    'status': this.sampling?"SAMPLE_SENT_TO_PRINTER":'SENT_TO_PRINTER', 
+                    'work_order_id': this.work_order_id, 
+                    'assignment_id': this.assignment_id
+                  }
+                }, {
+                  '$limit': 1
+                }
+              ]).toArray();
+            if (result.length==1){
+                console.log(result[0]._id)
+                return {id:result[0]._id,full_code:result[0].full_code,SN:result[0].code}
+            }else {
+                return false //no code found
+            }
+    }
+    async callback(){
+        this.waitPrint=true;
+        const id = await this.checkNGetCode2(this.db)
+        console.log(`idnya yang harusnya ke update : ${id.id} kalo thisnya: ${this}` )
+        await this.db.collection('serialization')
         
-        this.db.collection('serialization')
-        .updateOne( { _id: (this.printer.printCount+this.lowest_id - 1)}, 
+        .updateOne( { _id: id.id}, //TODO change to aggregate to find the earliest printing
                     { $set: { status : this.sampling?"SAMPLE_PRINTED":"PRINTED"} } // update the status of the printed code upon printing 
                     )
         if(this.fileNamesIdx===this.fileNames.length-1){
@@ -115,105 +169,115 @@ export default class printProcess {
         // Concatenate the length and the hexadecimal string
         return lengthHex + hexString;
     }
-    async printPrepairChecks() {
-        
+    async printSetupChecks (){
+
     }
 
-    async print() {
-        this.db = await connect() // TODO: use mongoDB.js
-        this.details = this.getCodeDetails(this.db)
-        this.printer.isOccupied = true;
-        this.printer.printCallback = ()=> {
-            this.callback()
-        }
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        await this.printer.send("11") // start print
-        //await this.printer.send("1E055152303031")
-        this.fileNames = ["QR001", "QR002", "QR003", "QR004", "QR005", "QR006", "QR007", "QR008", "QR009", "QR010"]; //TODO: get from printer
-        const div = Math.floor(this.fileNames.length / 2);
-        this.lowest_id = await this.getSmallestId(this.db)
-        
-        for (let idx = 0; idx < this.fileNames.length; idx++) { // first step: filling all msg files
-            let QRcode = await this.checkNGetCode(this.db, this.lowest_id+idx+this.printer.printCount)
-            if (QRcode) {
-                const text = this.printer.createModuleText(QRcode, false);
-                const QR = this.printer.createModuleQR(text);
-                const msg = this.printer.createMsg(QR, this.fileNames[idx]);
-                await this.printer.send(msg); // TODO : handle failed sending
-                console.log(`sending QR${this.lowest_id+idx + this.printer.printCount} to msg buffer ${this.fileNames[idx]}`);
-                this.printPCtarget=this.printPCtarget+1
-            } else {
-                break;
+
+    async print(res) {
+        try{
+            this.db = await connect() // TODO: use mongoDB.js
+            this.details = null
+            this.details = await this.getCodeDetails(this.db)
+            this.printer.isOccupied = true;
+            this.printer.printCallback = async ()=> {
+                await this.callback()
             }
-        }
-
-        console.log("you can start print, the print count is", this.printer.printCount);
-
-
-        let QRloop = await this.checkNGetCode(this.db,this.lowest_id+this.printer.printCount)
-        console.log(this.lowest_id+this.printer.printCount)
-        while (QRloop) {
-            console.log("waiting first half to be printed");
-            let tempPC = this.printer.printCount;
+            await this.printer.send("11") // start print
+            this.fileNames = ["QR001", "QR002", "QR003", "QR004", "QR005", "QR006", "QR007", "QR008", "QR009", "QR010"]; //TODO: get from printer
+            const div = Math.floor(this.fileNames.length / 2);
+            this.lowest_id = await this.getSmallestId(this.db)
+            let lastId = 0
+            for (let idx = 0; idx < this.fileNames.length; idx++) { // first step: filling all msg files
+                let QRcode = await this.checkNGetCode(this.db, lastId)
+                lastId = QRcode.id
+                
+                if (QRcode) {
+                    const msg =printerTemplate[this.templateId](QRcode,this.details,this.fileNames[idx])
+                    console.log(`sending QR${this.lowest_id+idx + this.printer.printCount} to msg buffer ${this.fileNames[idx]}`);
+                    await this.printer.send(msg);// todo error
+                    await this.db.collection('serialization').updateOne({_id:QRcode.id},{$set:{status:"SENT_TO_PRINTER"}})
+                    this.printPCtarget=this.printPCtarget+1
+                } else {
+                    console.log(`id = ${QRcode.id}, name len = ${this.fileNames.length}`)
+                    break;
+                }
+            }
+            console.log("you can start print, the print count is", this.printer.printCount);        
+            res.status(200).send({message:`Printing Process with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id}, and template Id = ${this.templateId} started`})
             
-            while (this.printer.printCount <= tempPC + div && this.printer.printCount<this.printPCtarget) {
-                await new Promise(resolve => setTimeout(resolve, 200));
-            }
-
-            console.log("sending first half, print count is:", this.printer.printCount); //Second Step
-            tempPC = this.printer.printCount;
-            let sendingCompleted = false;
-            if (!sendingCompleted) {
-                for (let idx = 0; idx < div; idx++) {
-                    let QRcode = await this.checkNGetCode(this.db,this.lowest_id+idx + tempPC - 1+div)
+            
+            
+            let QRloop = await this.checkNGetCode(this.db)
+            console.log(this.lowest_id+this.printer.printCount)
+            while (QRloop) {
+                console.log("waiting first half to be printed");
+                let tempPC = this.printer.printCount;
+                
+                while (this.printer.printCount <= tempPC + div && this.printer.printCount<this.printPCtarget) {
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+    
+                console.log("sending first half, print count is:", this.printer.printCount); //Second Step
+                tempPC = this.printer.printCount;
+                let sendingCompleted = false;
+                if (!sendingCompleted) {
+                    let lastId =0
+                    for (let idx = 0; idx < div; idx++) {
+                        let QRcode = await this.checkNGetCode(this.db, lastId)
+                        lastId = QRcode.id
+                        if (QRcode) {
+                            const msg = printerTemplate[this.templateId](QRcode,this.details,this.fileNames[idx])
+                            console.log(`sending QR${QRcode.id} to msg buffer ${this.fileNames[idx]}`);
+                            await this.printer.send(msg); 
+                            await this.db.collection('serialization').updateOne({_id:QRcode.id},{$set:{status:"SENT_TO_PRINTER"}})
+                            this.printPCtarget=this.printPCtarget+1
+                        } else {
+                            break;
+                        }
+                    }
+                    sendingCompleted = true;
+                    console.log("sending completed");
+                } else {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+                
+                console.log("waiting second half to be printed");
+                tempPC = this.printer.printCount;
+                while (this.printer.printCount < tempPC + this.fileNames.slice(div).length && this.printer.printCount<this.printPCtarget) {
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+    
+                console.log("sending second half, print count is:", this.printer.printCount); // Third Step
+                tempPC = this.printer.printCount;
+                let lastId=0
+                for (let idx = 0; idx < this.fileNames.slice(div).length; idx++) {
+                    let QRcode = await this.checkNGetCode(this.db, lastId)
+                    lastId = QRcode.id
                     if (QRcode) {
-                        const text = this.printer.createModuleText(QRcode, false);
-                        const QR = this.printer.createModuleQR(text);
-                        const msg = this.printer.createMsg(QR, this.fileNames[idx]);
+                        const msg = printerTemplate[this.templateId](QRcode,this.details,this.fileNames[idx])
+                        console.log(`sending QR${QRcode.id} to msg buffer ${this.fileNames[idx]}`);
                         await this.printer.send(msg);
-                        console.log(`sending _id${this.lowest_id+idx + tempPC - 1+div} on msg ${this.fileNames[idx]}`);
+                        await this.db.collection('serialization').updateOne({_id:QRcode.id},{$set:{status:"SENT_TO_PRINTER"}}) 
                         this.printPCtarget=this.printPCtarget+1
                     } else {
                         break;
                     }
                 }
-                sendingCompleted = true;
-                console.log("sending completed");
-            } else {
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                QRloop = await this.checkNGetCode(this.db,this.lowest_id+this.printer.printCount+1)
             }
-            
-            console.log("waiting second half to be printed");
-            tempPC = this.printer.printCount;
-            while (this.printer.printCount < tempPC + this.fileNames.slice(div).length && this.printer.printCount<this.printPCtarget) {
-                await new Promise(resolve => setTimeout(resolve, 200));
+            console.log(`waiting printing to be finished ${this.printPCtarget} vs ${this.printer.printCount}`)
+            while (this.printer.printCount<this.printPCtarget){
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
+            await this.printer.send("12") // stop printing//TODO: make commands as readable objects instead of hex code
+            this.printer.printCount = 0; 
+            this.printer.isOccupied = false;
+            console.log("ends");
+        }catch (err){
 
-            console.log("sending second half, print count is:", this.printer.printCount); // Third Step
-            tempPC = this.printer.printCount;
-            for (let idx = 0; idx < this.fileNames.slice(div).length; idx++) {
-                let QRcode = await this.checkNGetCode(this.db,this.lowest_id+idx + tempPC - 1+this.fileNames.slice(div).length)
-                if (QRcode) {
-                    const text = this.printer.createModuleText(QRcode, false);
-                    const QR = this.printer.createModuleQR(text);
-                    const msg = this.printer.createMsg(QR, this.fileNames[div + idx]);
-                    await this.printer.send(msg);
-                    console.log(`sending _id${this.lowest_id+idx + tempPC - 1+this.fileNames.slice(div).length} on msg ${this.fileNames[div + idx]}`);
-                    this.printPCtarget=this.printPCtarget+1
-                } else {
-                    break;
-                }
-            }
-            QRloop = await this.checkNGetCode(this.db,this.lowest_id+this.printer.printCount+1)
         }
-        console.log(`waiting printing to be finished ${this.printPCtarget} vs ${this.printer.printCount}`)
-        while (this.printer.printCount<this.printPCtarget){
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        await this.printer.send("12") // stop printing//TODO: make commands as readable objects instead of hex code
-        this.printer.printCount = 0; 
-        this.printer.isOccupied = false;
-        console.log("ends");
+
     }
 }
 
