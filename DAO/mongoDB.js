@@ -8,6 +8,7 @@ export default class MongoDB {
     }
     async connect() {
         try {
+            console.log("connecting...")
             await this.client.connect();
             console.log('Connected to the database');
             this.client.db(this.databaseName)
