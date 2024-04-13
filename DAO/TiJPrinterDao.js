@@ -180,7 +180,7 @@ export default class TIJPrinter {
             }
     
             createModuleQR(obj, x = 17, y = 33, scale = 18, rotation = 0, type = 'Data Matrix', faultToleranceLevel = 'H', size = 10, colorInverse = false, frameStyle = 'Blank', frameSize = 0) {
-                const module = [obj];
+                const module = obj;
                 x = to16BitHex(x);
                 y = to16BitHex(y);
                 scale = scale.toString(16).padStart(2, '0');
@@ -195,12 +195,17 @@ export default class TIJPrinter {
                 const frameStyleDict = { 'Blank': '0', 'Top&bottom': '1' };
                 frameStyle = frameStyleDict[frameStyle];
                 const frameSizeHex = frameSize.toString(16).padStart(1, '0');
-                const numOfModule = module.length.toString(16).padStart(2, '0');
+                const numOfModule = (module.length).toString(16).padStart(2, '0');
     
                 let data = '04' + x + y + scale + type + faultToleranceLevel + size + rotation + colorInverseValue + frameStyle + frameSizeHex + numOfModule;
+                console.log(`data1: ${data}`)
                 module.forEach(i => data += i);
+                console.log(`data2: ${data}`)
     
                 return data;
+            }
+            createModuleField(){
+                return "0300B000280005000F0A4162797373696e696361800106"
             }
      
     
