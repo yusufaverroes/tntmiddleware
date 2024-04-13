@@ -1,14 +1,20 @@
 // db.js
 import { MongoClient } from 'mongodb';
+import dotenv from 'dotenv';
 
-const uri = 'mongodb://localhost:27017/?directConnection=true'; //TODO : put on .env
+
+
+dotenv.config();
+
+const uri = process.env.MONGODB_URI; //TODO : put on .env
+console.log(uri)
 const client = new MongoClient(uri);
 
 async function connect() {
     try {
         await client.connect();
         console.log('Connected to the database');
-        return client.db('trackNtrace');
+        return client.db('seratonic');
     } catch (err) {
         console.error('Error connecting to the database:', err);
         throw err;

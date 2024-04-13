@@ -1,3 +1,4 @@
+
 export default class Rejection {
     constructor(sensor, switch1, responseQueue) {
         this.sensor = sensor;
@@ -28,11 +29,10 @@ export default class Rejection {
                             }
                             await sleep(50);
                             console.log("Box Pass");
-                            //TODO call the API
                         } else {
                             await sleep(70);
                             this.switch1.setValue(0);
-                            await sleep(20);
+                            await sleep(10);
                             let switchOpened = true;
                             while (switchOpened) {
                                 this.switch1.setValue(1);
@@ -43,8 +43,7 @@ export default class Rejection {
                                 switchOpened = false;
                             }
                             console.log("Rejected");
-                            //TODO call the API
-                            //
+
                             await sleep(50);
                         }
                     }

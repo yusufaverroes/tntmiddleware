@@ -1,15 +1,17 @@
-// db.js
+import { MongoClient } from 'mongodb';
 
 export default class MongoDB {
-    constructor(uri){
-        this.client = new MongoClient(uri);
-        this.db =  this.client.db('trackNtrace'); // default
+    constructor(uri, databaseName){
+        this.client = new MongoClient(uri)
+        this.db = null
+        this.databaseName = databaseName
     }
-    async  connect() {
+    async connect() {
         try {
-            await client.connect();
+            console.log("connecting...")
+            await this.client.connect();
             console.log('Connected to the database');
-            
+            this.client.db(this.databaseName)
         } catch (err) {
             console.error('Error connecting to the database:', err);
             throw err;
@@ -25,9 +27,8 @@ export default class MongoDB {
         }
     }
     
-    async edit(dbName,collectionName,id, field, newItem) {
+    async  update(collectionName, id, field, newItem) {
         try {
-            const db = client.db(dbName);
             const collection = db.collection(collectionName);
             
             const result = await collection.updateOne({ _id: id }, { $set: { [field]: newItem } });
@@ -42,4 +43,5 @@ export default class MongoDB {
             throw err;
         }
     }
+    
 }

@@ -1,6 +1,5 @@
 import net from 'net';
 import { EventEmitter } from 'events';
-import { printingProcess } from '../index.js';
 
 
 
@@ -26,22 +25,27 @@ export default class TIJPrinter {
         this.responseEvent = new EventEmitter();
         this.responseBuffer = null;
         this.isOccupied = false;
+        this.printCallback=null
 
         this.ESC = '1B';
         this.STX = '02';
         this.EXT = '03';
     }
 
+    setPrintCallBack(callback) {
+        this.printCallback = callback
+    } 
+
     connect() {
         this.socket = new net.Socket();
         this.socket.connect(this.port, this.ip, () => {
             this.running = true;
             this.listenerThread = this.listenForResponses();
-            console.log("Printer Socket established");// TODO: show more details
+            console.log(`Printer Socket established on port ${this.port} and IP ${this.ip}`);
         });
 
         this.socket.on('error', (err) => {
-            console.error("Connection error:", err);
+            console.error("Printer: Connection error:", err);
             this.running = false;
         });
     }
@@ -59,25 +63,29 @@ export default class TIJPrinter {
         });
 
         this.socket.on('error', (err) => {
-            console.error("Error listening for responses:", err);
+            console.error("Printer: Error listening for responses:", err);
         });
 
         this.socket.on('close', () => {
-            console.log("Listening stopped");
+            console.log("Printer: Listening stopped");
         });
     }
 
     handleUnsolicitedResponse(response) {
         this.printCount++;
         console.log(`print response: ${response.toString('utf8')}, PC: ${this.printCount}`);
+         if (this.printCallback) {
+        
+        this.printCallback();
+    }
         
 
     }
 
-    send(hexData, reshandler = () =>{}) {
+    send(hexData, reshandler = () => {}) {
         return new Promise((resolve, reject) => {
             if (!this.running) {
-                reject(new Error("Not connected to a printer"));
+                reject("Not connected to a printer"); // Reject with error message directly
                 return;
             }
     
@@ -85,13 +93,13 @@ export default class TIJPrinter {
             console.log(hexDataToSend);
     
             const hexBytes = Buffer.from(hexDataToSend, 'hex');
-            const chifecksum = this.calculate2sComplementChecksum(hexBytes);
+            const checksum = this.calculate2sComplementChecksum(hexBytes);
             const hexBytesWithChecksum = Buffer.concat([hexBytes, Buffer.from([checksum])]);
             console.log(hexBytesWithChecksum);
             this.socket.write(hexBytesWithChecksum);
     
             let timeout = setTimeout(() => {
-                reject(new Error("Timeout occurred. No response from slave address."));
+                reject("Timeout occurred. No response from slave address."); // Reject with error message directly
             }, 1000);
     
             // Event listener for when response is received
@@ -100,10 +108,11 @@ export default class TIJPrinter {
                 resolve(this.responseBuffer);
                 console.log("received");
                 console.log(this.responseBuffer)
-                reshandler(this.responseBuffer)
+                reshandler(this.responseBuffer);
             });
         });
     }
+    
     
 
     disconnect() {
@@ -133,7 +142,7 @@ export default class TIJPrinter {
     }
 
     createMsg(obj, fileName) {
-        const module = [obj];
+        const module = obj;
         const msgNameLen = fileName.length.toString(16).padStart(2, '0');
         const fileNameHex = Buffer.from(fileName).toString('hex');
         const numOfModule = module.length.toString(16).padStart(2, '0');
@@ -170,8 +179,8 @@ export default class TIJPrinter {
                 }
             }
     
-            createModuleQR(obj, x = 7, y = 13, scale = 20, rotation = 0, type = 'Data Matrix', faultToleranceLevel = 'H', size = 10, colorInverse = false, frameStyle = 'Blank', frameSize = 0) {
-                const module = [obj];
+            createModuleQR(obj, x = 17, y = 33, scale = 18, rotation = 0, type = 'Data Matrix', faultToleranceLevel = 'H', size = 10, colorInverse = false, frameStyle = 'Blank', frameSize = 0) {
+                const module = obj;
                 x = to16BitHex(x);
                 y = to16BitHex(y);
                 scale = scale.toString(16).padStart(2, '0');
@@ -186,12 +195,17 @@ export default class TIJPrinter {
                 const frameStyleDict = { 'Blank': '0', 'Top&bottom': '1' };
                 frameStyle = frameStyleDict[frameStyle];
                 const frameSizeHex = frameSize.toString(16).padStart(1, '0');
-                const numOfModule = module.length.toString(16).padStart(2, '0');
+                const numOfModule = (module.length).toString(16).padStart(2, '0');
     
                 let data = '04' + x + y + scale + type + faultToleranceLevel + size + rotation + colorInverseValue + frameStyle + frameSizeHex + numOfModule;
+                console.log(`data1: ${data}`)
                 module.forEach(i => data += i);
+                console.log(`data2: ${data}`)
     
                 return data;
+            }
+            createModuleField(){
+                return "0300B000280005000F0A4162797373696e696361800106"
             }
      
     
