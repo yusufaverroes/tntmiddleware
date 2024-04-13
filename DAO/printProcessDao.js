@@ -146,7 +146,6 @@ export default class printProcess {
     async callback(){
         this.waitPrint=true;
         const id = await this.checkNGetCode2(this.db)
-        console.log(`idnya yang harusnya ke update : ${id.id} kalo thisnya: ${this}` )
         await this.db.collection('serialization')
         
         .updateOne( { _id: id.id}, //TODO change to aggregate to find the earliest printing
@@ -170,41 +169,41 @@ export default class printProcess {
         return lengthHex + hexString;
     }
     async printSetupChecks (){
-
+        this.db = await connect() // TODO: use mongoDB.js
+        this.details = null
+        this.details = await this.getCodeDetails(this.db)
+        this.printer.isOccupied = true;
+        this.printer.printCallback = async ()=> {
+            await this.callback()
+        }
+        await this.printer.send("11") // start print
+        this.fileNames = ["QR001", "QR002", "QR003", "QR004", "QR005", "QR006", "QR007", "QR008", "QR009", "QR010"]; //TODO: get from printer,move to printer class
+        const div = Math.floor(this.fileNames.length / 2);
+        this.lowest_id = await this.getSmallestId(this.db)
+        let lastId = 0
+        for (let idx = 0; idx < this.fileNames.length; idx++) { // first step: filling all msg files
+            let QRcode = await this.checkNGetCode(this.db, lastId) //TODO : must ensure the code is never goes to printer
+            lastId = QRcode.id
+            
+            if (QRcode) {
+                const msg =printerTemplate[this.templateId](QRcode,this.details,this.fileNames[idx])
+                console.log(`sending QR${this.lowest_id+idx + this.printer.printCount} to msg buffer ${this.fileNames[idx]}`);
+                await this.printer.send(msg);// todo error
+                //await this.db.collection('serialization').updateOne({_id:QRcode.id},{$set:{status:"SENT_TO_PRINTER"}})
+                this.printPCtarget=this.printPCtarget+1
+            } else {
+                console.log(`id = ${QRcode.id}, name len = ${this.fileNames.length}`)
+                break;
+            }
+        }
+        console.log("you can start print, the print count is", this.printer.printCount);        
+        res.status(200).send({message:`Printing Process with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id}, and template Id = ${this.templateId} started`})
     }
 
 
     async print(res) {
         try{
-            this.db = await connect() // TODO: use mongoDB.js
-            this.details = null
-            this.details = await this.getCodeDetails(this.db)
-            this.printer.isOccupied = true;
-            this.printer.printCallback = async ()=> {
-                await this.callback()
-            }
-            await this.printer.send("11") // start print
-            this.fileNames = ["QR001", "QR002", "QR003", "QR004", "QR005", "QR006", "QR007", "QR008", "QR009", "QR010"]; //TODO: get from printer
-            const div = Math.floor(this.fileNames.length / 2);
-            this.lowest_id = await this.getSmallestId(this.db)
-            let lastId = 0
-            for (let idx = 0; idx < this.fileNames.length; idx++) { // first step: filling all msg files
-                let QRcode = await this.checkNGetCode(this.db, lastId)
-                lastId = QRcode.id
-                
-                if (QRcode) {
-                    const msg =printerTemplate[this.templateId](QRcode,this.details,this.fileNames[idx])
-                    console.log(`sending QR${this.lowest_id+idx + this.printer.printCount} to msg buffer ${this.fileNames[idx]}`);
-                    await this.printer.send(msg);// todo error
-                    await this.db.collection('serialization').updateOne({_id:QRcode.id},{$set:{status:"SENT_TO_PRINTER"}})
-                    this.printPCtarget=this.printPCtarget+1
-                } else {
-                    console.log(`id = ${QRcode.id}, name len = ${this.fileNames.length}`)
-                    break;
-                }
-            }
-            console.log("you can start print, the print count is", this.printer.printCount);        
-            res.status(200).send({message:`Printing Process with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id}, and template Id = ${this.templateId} started`})
+
             
             
             
