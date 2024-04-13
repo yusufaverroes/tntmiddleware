@@ -14,8 +14,15 @@ let printerTemplate = [
         const msg = printer.createMsg(modules, fileName);
         return msg
     },
-    function template2 (x, y ,z){
-        console.log(`${x} ${y} ${z}`)
+    function template2 (QRcode, fileName){
+        const QRtext = printer.createModuleText(QRcode, false);
+        const field = printer.createModuleField()
+        const QRModule = [QRtext,"0301"]
+        const QR = printer.createModuleQR(QRModule);
+        
+        const modules= [QR,field]
+        const msg = printer.createMsg(modules, fileName);
+        return msg
     }
 
 
