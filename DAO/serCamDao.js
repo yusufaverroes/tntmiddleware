@@ -1,5 +1,6 @@
 import net from 'net';
 import sendDataToAPI from '../API/APICall/apiCall.js'
+import { printingProcess } from '../index.js';
 
 function removeSpacesAndNewlines(inputString) {
     return inputString.replace(/\s+/g, '');
@@ -107,11 +108,17 @@ export default class serCam {
         
         const check = this.checkFormat(data)
         this.queue.enqueue(check.result)
-        await new Promise(resolve => setTimeout(resolve, 1000)); 
-        await sendDataToAPI(`v1/work-order/1/serialization/code/${check.code}/verify`,{ // TODO: what if its not reaching the API
-            accuracy_level:data.accuracy,
-            result:check.result?"pass":"rejected"
+        await new Promise(resolve => setTimeout(resolve, 300)); 
+        console.log(data)
+        console.log(`work o id ${printingProcess.work_order_id}`)
+        await sendDataToAPI(`v1/work-order/${printingProcess.work_order_id}/serialization/validate`,{ // TODO: what if its not reaching the API
+            accuracy:data.accuracy,
+            status:check.result?"pass":"rejected",
+            code:data.code,
+            reason:check.reason
+            
         }) 
+        
     }
         
 }

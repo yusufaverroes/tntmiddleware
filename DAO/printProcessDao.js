@@ -28,14 +28,15 @@ function formatCurrencyIDR(amount, locale = 'id-ID') {
 import Queue from '../utils/queue.js';
 import printerTemplate from '../utils/printerTemplates.js';
 import { connect, close } from './db.js';
+import sendDataToAPI from '../API/APICall/apiCall.js';
 
 export default class printProcess {
     constructor(printer) {
         this.printer = printer;
         this.fileNames = [];
         this.db=null
-        this.work_order_id=9
-        this.assignment_id=6
+        this.work_order_id=5
+        this.assignment_id=5
         this.printPCtarget=0
         this.lowest_id=null
         this.details=null
@@ -75,25 +76,27 @@ export default class printProcess {
     }
     
     async getDataBySmallestId(db) {
-        const result = await db.collection('serialization').findOne(
-            {
-                status: this.sampling?"SAMPLE_PRINTING":'PRINTING',
-                work_order_id:this.work_order_id,
-                assignment_id:this.assignment_id
-            },
-            {
-                sort: { _id: 1 },
-                projection: { _id: 1 }
+        const result = await db.collection('serialization').aggregate(
+            [
+                {
+                  '$sort': {
+                    '_id': 1
+                  }
+                }, {
+                  '$match': {
+                    'status': this.sampling?"SAMPLE_SENT_TO_PRINTER":'SENT_TO_PRINTER', 
+                    'work_order_id': this.work_order_id, 
+                    'assignment_id': this.assignment_id
+                  }
+                }, {
+                  '$limit': 1
+                }
+              ]).toArray();
+            if (result.length==1){
+                return {id:result[0]._id,full_code:result[0].full_code,SN:result[0].code}
+            }else {
+                return false //no code found
             }
-        );
-       
-        if (result) {
-            console.log(result)
-            return {id:result._id,full_code:result.full_code,SN:result.code};
-        } else {
-
-            return null;
-        }
     }
   
     async getSmallestId(db) {
@@ -168,19 +171,23 @@ export default class printProcess {
             }
     }
     async callback(){
-        this.waitPrint=true;
-        const id = await this.checkNGetCode2(this.db)
-        await this.db.collection('serialization')
-        
-        .updateOne( { _id: id.id}, //TODO change to aggregate to find the earliest printing
-                    { $set: { status : this.sampling?"SAMPLE_PRINTED":"PRINTED"} } // update the status of the printed code upon printing 
-                    )
-        if(this.fileNamesIdx===this.fileNames.length-1){
-            this.fileNamesIdx=0
-        }else{
-            this.fileNamesIdx++
+        console.log("printed")
+        let serialization = await this.getDataBySmallestId(this.db)
+        if(serialization!=null){
+            console.log(`ser : ${serialization}`)
+            await this.printer.sendRemoteFieldData([`SN ${serialization.SN}}`, serialization.full_code])
+            await this.db.collection('serialization')
+                         .updateOne( { _id: serialization.id}, 
+                        { $set: { status : this.sampling?"SAMPLING":"PRINTING"} } // update the status of the printed code upon pusing to buffer 
+                        )
+            this.full_code_queue.enqueue(serialization.full_code)
         }
-        // this.printer.send(`1E${this.convertToHex(this.fileNames[this.fileNamesIdx])}`)
+       
+        const printed = this.full_code_queue.dequeue()
+        await sendDataToAPI(`v1/work-order/${work_order_id}/assignment/${assignment_id}/serialization/printed`,{ 
+            full_code:printed,
+        }) 
+
     }
      convertToHex(str) {
         // Get the length of the string in hexadecimal
@@ -198,25 +205,28 @@ export default class printProcess {
             this.details = null
             this.details = await this.getCodeDetails(this.db)
             if (this.details===null){
+                console.log("no details")
                 throw new Error(`no details with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id} found`)
             }
 
-            let serialization = await getDataBySmallestId(this.db)
+            let serialization = await this.getDataBySmallestId(this.db)
             let P_status ="no errors"
 
-            while (P_status==="no errors" || P_status==="print not started"){ // filling up the buffer first
+            const msg =printerTemplate[1](this.details,"QR003")
+            await this.printer.send(msg) 
+            while (counter < 10){ // filling up the buffer first
                 
-                P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}}`, serialization.full_code])
+                P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}}`, serialization.full_code]) // goes to buffer
                 await this.db.collection('serialization')
         
                 .updateOne( { _id: serialization.id}, 
-                            { $set: { status : this.sampling?"SENT_SAMPLE_TO_PRINTER":"SENT_TO_PRINTER"} } // update the status of the printed code upon pusing to buffer 
+                            { $set: { status : this.sampling?"SAMPLING":"PRINTING"} } // update the status of the printed code upon pusing to buffer 
                             )
                 this.full_code_queue.enqueue(serialization.full_code)
+                serialization = await this.getDataBySmallestId(this.db)
                 if (P_status === "now full"){
                     break;
                 }
-                serialization = await getDataBySmallestId(this.db)
             }
             this.printer.isOccupied = true;
             this.printer.printCallback = async ()=> {
@@ -230,7 +240,10 @@ export default class printProcess {
         }
     }
     async print(){
-        console.log("printiiiiing")
+        let serialization = await this.getDataBySmallestId(this.db)
+        while (serialization!=null){
+
+        }
     }
     // async printSetupChecks (){
     //     this.db = await connect() // TODO: use mongoDB.js

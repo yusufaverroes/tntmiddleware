@@ -107,8 +107,8 @@ export default class TIJPrinter {
             // Event listener for when response is received
             this.responseEvent.once('responseReceived', () => {
                 clearTimeout(timeout);
+                console.log("Response received:", this.responseBuffer); // Add this line for debugging
                 resolve(this.responseBuffer);
-                console.log("received");
                 console.log(this.responseBuffer)
                 reshandler(this.responseBuffer);
             });
@@ -169,7 +169,7 @@ export default class TIJPrinter {
                     y = to16BitHex(y);
                     const rotData = { 0: "00", 90: "01", 180: "02", 270: "03" };
                     rotation = rotData[rotation];
-                    const spaceData = {'30': '00','20': '01','10': '02','5': '03','2': '04','0': '05','-2': '06','-5': '07','-10': '08','-20': '09','-30': '0A'};
+                    const spaceData = {'30': '0000','20': '0001','10': '0002','5': '0003','2': '0004','0': '0005','-2': '0006','-5': '0007','-10': '0008','-20': '0009','-30': '000A'};
                     
                     space = spaceData[space.toString()];
                     fontSize = fontSize.toString(16).padStart(4, '0');
@@ -200,9 +200,7 @@ export default class TIJPrinter {
                 const numOfModule = (module.length).toString(16).padStart(2, '0');
     
                 let data = '04' + x + y + scale + type + faultToleranceLevel + size + rotation + colorInverseValue + frameStyle + frameSizeHex + numOfModule;
-                console.log(`data1: ${data}`)
                 module.forEach(i => data += i);
-                console.log(`data2: ${data}`)
     
                 return data;
             }
@@ -222,54 +220,103 @@ export default class TIJPrinter {
                 alignment = alignment.toString(16).padStart(2, '0')
                 id = id.toString(16).padStart(2, '0')
                 textLenght = textLenght.toString(16).padStart(2, '0')
-
-                return "03"+x+y+rotation+space+fontSize+fontLen+fontName+source+coder+alignment+textLenght;
+                const data = `03${x}${y}${rotation}${space}${fontSize}${fontLen}${fontName}${80}${id}${textLenght}`;
+                console.log(`data field : ${data}`)
+                return data
             }
-            sendRemoteFieldData(messages){
-                let numOfField = messages.length
-                let numOfFieldHex = messages.length.toString(16).padStart(2, '0');
-                let data = "1d" + numOfFieldHex
-                for(let i =0; i<numOfField;i++){
+            // async sendRemoteFieldData(messages){
+            //     let numOfField = messages.length
+            //     let numOfFieldHex = messages.length.toString(16).padStart(2, '0');
+            //     let data = "1d" + numOfFieldHex
+            //     for(let i =0; i<numOfField;i++){
+            //         const fieldId = i.toString(16).padStart(2, '0');
+            //         const lengthOfMessage= messages[i].length.toString(16).padStart(2, '0');
+            //         const messageHex = Buffer.from(messages[i]).toString('hex');
+            //         data=data+ fieldId + lengthOfMessage+ messageHex
+            //     }
+            //     console.log(`data : ${data}`)
+            //     return await this.send(data)
+            //         .then(response => {
+            //             console.log(response);
+            //             console.log(`1D response : ${response}`)
+            //             if (response[2]===0x16){
+            //                 let P_status 
+            //                 switch (statusData[3]) {
+            //                     case 0x00:
+            //                         P_status = "no errors";
+            //                         break;
+            //                     case 0x01:
+            //                         P_status = "now full";
+            //                         break;
+            //                     case 0x12:
+            //                         P_status = "still full";
+            //                         break;
+            //                     case 0x12:
+            //                         P_status = "one or more printer errors exist";
+            //                         break;
+            //                     case 0x12:
+            //                         P_status = "print not started";
+            //                         break;
+            //                     default:
+            //                         P_status = "unknown";
+            //                     return P_status
+            //                 }
+            //             }else{
+            //                 return "NAK"
+            //             }
+            //         })
+            //         .catch(err => {
+            //             console.log(err)
+            //         })
+            // }
+            async sendRemoteFieldData(messages) {
+                let numOfField = messages.length;
+                let numOfFieldHex = numOfField.toString(16).padStart(2, '0');
+                let data = "1d" + numOfFieldHex;
+            
+                for (let i = 0; i < numOfField; i++) {
                     const fieldId = i.toString(16).padStart(2, '0');
-                    const lengthOfMessage= messages[i].length.toString(16).padStart(2, '0');
+                    const lengthOfMessage = messages[i].length.toString(16).padStart(2, '0');
                     const messageHex = Buffer.from(messages[i]).toString('hex');
-                    data=data+ fieldId + lengthOfMessage+ messageHex
+                    data = data + fieldId + lengthOfMessage + messageHex;
                 }
-                console.log(`data : ${data}`)
-                this.send(data)
-                    .then(response => {
-                        console.log(`1D response : ${response}`)
-                        if (response[2]===0x16){
-                            let P_status 
-                            switch (statusData[3]) {
-                                case 0x00:
-                                    P_status = "no errors";
-                                    break;
-                                case 0x01:
-                                    P_status = "now full";
-                                    break;
-                                case 0x12:
-                                    P_status = "still full";
-                                    break;
-                                case 0x12:
-                                    P_status = "one or more printer errors exist";
-                                    break;
-                                case 0x12:
-                                    P_status = "print not started";
-                                    break;
-                                default:
-                                    P_status = "unknown";
-                                return P_status
-                            }
-                        }else{
-                            return "NAK"
+            
+                console.log(`data : ${data}`);
+            
+                try {
+                    const response = await this.send(data);
+            
+                    if (response[1] === 0x06) {
+                        let P_status;
+                        switch (response[3]) {
+                            case 0x00:
+                                P_status = "no errors";
+                                break;
+                            case 0x42:
+                                P_status = "now full";
+                                break;
+                            case 0x43:
+                                P_status = "still full";
+                                break;
+                            case 0x01:
+                                P_status = "one or more printer errors exist";
+                                break;
+                            case 0x12:
+                                P_status = "print not started";
+                                break;
+                            default:
+                                P_status = "unknown";
                         }
-                    })
-                    .catch(err => {
-                        console.log(err)
-                    })
+                        return P_status;
+                    } else {
+                        return "NAK";
+                    }
+                } catch (err) {
+                    console.log(err);
+                    throw err;
+                }
             }
-
+            
             requestPrinterStatus() {
                 this.send("14") // request status code
                     .then(responseBuffer => {
@@ -323,9 +370,9 @@ export default class TIJPrinter {
                     });
 
             }
-            uploadTemplateMSG(msg, fileName){
+            // uploadTemplateMSG(msg, fileName){
                 
-            }
+            // }
 
      
     
