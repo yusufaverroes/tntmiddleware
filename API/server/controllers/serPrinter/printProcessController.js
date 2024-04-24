@@ -75,7 +75,7 @@ const startPrinting = async (req, res) => {
         }else{
             return res.status(500).send({message:"unknown issue, printer is not started"})
         }
-        await printingProcess.print()
+        //await printingProcess.print()
     }catch(err){
         console.log(err)
         res.status(500).send({error:err})

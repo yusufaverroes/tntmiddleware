@@ -187,6 +187,12 @@ export default class printProcess {
         await sendDataToAPI(`v1/work-order/${work_order_id}/assignment/${assignment_id}/serialization/printed`,{ 
             full_code:printed,
         }) 
+        // When full_code_queue is empty, meaning it comes to end of the job printing. Need to stop printer job
+        if (this.full_code_queue.isEmpty()){
+            this.printer.send("12"); // stop printer
+            this.printer.send("21"); // clear buffer upon completing the job
+
+        }
 
     }
      convertToHex(str) {
@@ -212,9 +218,11 @@ export default class printProcess {
             let serialization = await this.getDataBySmallestId(this.db)
             let P_status ="no errors"
 
+            this.printer.send("21"); // clear buffer before start printing
             const msg =printerTemplate[1](this.details,"QR003")
             await this.printer.send(msg) 
-            while (counter < 10){ // filling up the buffer first
+            while (serialization != null && (P_status === "no errors" || P_status=== "still full")){ // filling up the buffer first
+           // while (counter < 10){ // filling up the buffer first TODO: To remove this line of code
                 
                 P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}}`, serialization.full_code]) // goes to buffer
                 await this.db.collection('serialization')
@@ -240,10 +248,9 @@ export default class printProcess {
         }
     }
     async print(){
-        let serialization = await this.getDataBySmallestId(this.db)
-        while (serialization!=null){
-
-        }
+        // let serialization = await this.getDataBySmallestId(this.db)
+        // while (serialization!=null){
+        //}
     }
     // async printSetupChecks (){
     //     this.db = await connect() // TODO: use mongoDB.js
