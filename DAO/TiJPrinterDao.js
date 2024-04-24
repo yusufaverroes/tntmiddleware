@@ -1,5 +1,6 @@
 import net from 'net';
 import { EventEmitter } from 'events';
+import { error } from 'console';
 
 
 
@@ -10,6 +11,7 @@ function to16BitHex(value) {
         return ((1 << 16) + value).toString(16).padStart(4, '0');
     }
 }
+
 
 export default class TIJPrinter {
     constructor(ip, port, slaveAddress, workstationId) {
@@ -167,8 +169,8 @@ export default class TIJPrinter {
                     y = to16BitHex(y);
                     const rotData = { 0: "00", 90: "01", 180: "02", 270: "03" };
                     rotation = rotData[rotation];
-                    const spaceData = {'30': '0000','20': '0001','10': '0002','5': '0003','2': '0004','0': '0005','-2': '0006','-5': '0007','-10': '0008','-20': '0009','-30': '000A'};
-    
+                    const spaceData = {'30': '00','20': '01','10': '02','5': '03','2': '04','0': '05','-2': '06','-5': '07','-10': '08','-20': '09','-30': '0A'};
+                    
                     space = spaceData[space.toString()];
                     fontSize = fontSize.toString(16).padStart(4, '0');
                     const fontLen = fontName.length.toString(16).padStart(2, '0');
@@ -204,9 +206,127 @@ export default class TIJPrinter {
     
                 return data;
             }
-            createModuleField(){
-                return "0300B000280005000F0A4162797373696e696361800106"
+            createModuleField(x = 34, y = 28, rotation = 0, fontSize = 64, space = 0, fontName = "Lato", textLenght=12, id=1, source=1, coder=0, alignment=0){
+                
+                x = to16BitHex(x);
+                y = to16BitHex(y);
+                const rotData = { 0: "00", 90: "01", 180: "02", 270: "03" };
+                rotation = rotData[rotation];
+                const spaceData = {'30': '00','20': '01','10': '02','5': '03','2': '04','0': '05','-2': '06','-5': '07','-10': '08','-20': '09','-30': '0A'};
+                space = spaceData[space.toString()];
+                fontSize = fontSize.toString(16).padStart(4, '0');
+                const fontLen = fontName.length.toString(16).padStart(2, '0');
+                fontName = Buffer.from(fontName).toString('hex');
+                source = source.toString(16).padStart(2, '0');
+                coder = coder.toString(16).padStart(2, '0')
+                alignment = alignment.toString(16).padStart(2, '0')
+                id = id.toString(16).padStart(2, '0')
+                textLenght = textLenght.toString(16).padStart(2, '0')
+
+                return "03"+x+y+rotation+space+fontSize+fontLen+fontName+source+coder+alignment+textLenght;
             }
+            sendRemoteFieldData(messages){
+                let numOfField = messages.length
+                let numOfFieldHex = messages.length.toString(16).padStart(2, '0');
+                let data = "1d" + numOfFieldHex
+                for(let i =0; i<numOfField;i++){
+                    const fieldId = i.toString(16).padStart(2, '0');
+                    const lengthOfMessage= messages[i].length.toString(16).padStart(2, '0');
+                    const messageHex = Buffer.from(messages[i]).toString('hex');
+                    data=data+ fieldId + lengthOfMessage+ messageHex
+                }
+                console.log(`data : ${data}`)
+                this.send(data)
+                    .then(response => {
+                        console.log(`1D response : ${response}`)
+                        if (response[2]===0x16){
+                            let P_status 
+                            switch (statusData[3]) {
+                                case 0x00:
+                                    P_status = "no errors";
+                                    break;
+                                case 0x01:
+                                    P_status = "now full";
+                                    break;
+                                case 0x12:
+                                    P_status = "still full";
+                                    break;
+                                case 0x12:
+                                    P_status = "one or more printer errors exist";
+                                    break;
+                                case 0x12:
+                                    P_status = "print not started";
+                                    break;
+                                default:
+                                    P_status = "unknown";
+                                return P_status
+                            }
+                        }else{
+                            return "NAK"
+                        }
+                    })
+                    .catch(err => {
+                        console.log(err)
+                    })
+            }
+
+            requestPrinterStatus() {
+                this.send("14") // request status code
+                    .then(responseBuffer => {
+                        console.log("Response received:", responseBuffer);
+            
+                        // Extract printer status data from responseBuffer
+                        const statusData = responseBuffer.slice(4, -3); //  status data is between 4th and 3rd from the last bytes
+                        
+                        // Translate P_status
+                        let P_status;
+                        switch (statusData[1]) {
+                            case 0x00:
+                                P_status = "normal";
+                                break;
+                            case 0x01:
+                                P_status = "yellow or red status occur";
+                                break;
+                            case 0x12:
+                                P_status = "Print not started";
+                                break;
+                            default:
+                                P_status = "unknown";
+                        }
+            
+                        // Translate ink_level
+                        const statusByte = statusData[1];
+                        const yellowBit = (statusByte >> 2) & 1; // Extracting status-10 bit
+                        const redBit = (statusByte >> 6) & 1; // Extracting status-14 bit
+            
+                        let ink_level;
+                        if (yellowBit && redBit) {
+                            ink_level = "red";
+                        } else if (yellowBit) {
+                            ink_level = "yellow";
+                        } else {
+                            ink_level = "safe";
+                        }
+            
+                        // Create and return the result object
+                        const result = {
+                            P_status: P_status,
+                            ink_level: ink_level
+                        };
+                        return result;
+                    })
+                    .catch(error => {
+                        // Handle errors
+                        console.error("Error:", error);
+                        // Additional error handling here
+                        throw error; 
+                    });
+
+            }
+            uploadTemplateMSG(msg, fileName){
+                
+            }
+
      
     
         }

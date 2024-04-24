@@ -33,24 +33,26 @@ const printer = new TIJPrinter(process.env.TiJPrinter_IP, process.env.TiJPrinter
 
 printer.connect()
 import printerTemplate from './utils/printerTemplates.js';
-const msg =printerTemplate[1]("test","QR004")
+// const msg =printerTemplate[1]("test","QR004")
 await new Promise(resolve => setTimeout(resolve, 2000));
-await printer.send(msg)
+// await printer.send(msg)
+printer.send(printer.remoteFieldData(["001","003"]))
 await new Promise(resolve => setTimeout(resolve, 500));
-await printer.send("1E055152303034") 
-await new Promise(resolve => setTimeout(resolve, 500));
-await printer.send("1D0201033030310203303032")
-await new Promise(resolve => setTimeout(resolve, 500));
-await printer.send("1D010103303032")
+// await printer.send("1E055152303034") 
 // await new Promise(resolve => setTimeout(resolve, 500));
-// await printer.send("1D010103303033")
+// await printer.send("1D0201033030310203303032")
 // await new Promise(resolve => setTimeout(resolve, 500));
-// await printer.send("1D010103303034")
+// await printer.send("1D010103303032")
+// // await new Promise(resolve => setTimeout(resolve, 500));
+// // await printer.send("1D010103303033")
+// // await new Promise(resolve => setTimeout(resolve, 500));
+// // await printer.send("1D010103303034")
+// // await new Promise(resolve => setTimeout(resolve, 500));
+// // await printer.send("1D010103303035")
 // await new Promise(resolve => setTimeout(resolve, 500));
-// await printer.send("1D010103303035")
-await new Promise(resolve => setTimeout(resolve, 500));
-await printer.send("1D010103303036")
-
+// await printer.send("1D010103303036")
+// await new Promise(resolve => setTimeout(resolve, 500));
+// await printer.send("24")
 //await printer.send(msg)
 
 // await printer.send("0B") // TODO: remove or not (reset print count)
