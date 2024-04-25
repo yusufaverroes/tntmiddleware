@@ -35,3 +35,8 @@ await new Promise(resolve => setTimeout(resolve, 500));
 const printingProcess = new printProcess(printer)
 export  {printingProcess,printer, serialCamera, serQueue}
 startHTTPServer(process.env.SERVER_PORT)
+
+
+await new Promise(resolve => setTimeout(resolve, 1000));
+
+

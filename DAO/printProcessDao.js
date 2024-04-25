@@ -191,6 +191,7 @@ export default class printProcess {
         if (this.full_code_queue.isEmpty()){
             this.printer.send("12"); // stop printer
             this.printer.send("21"); // clear buffer upon completing the job
+            this.printer.isOccupied = false;
 
         }
 
