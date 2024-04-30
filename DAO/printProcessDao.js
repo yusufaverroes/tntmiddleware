@@ -94,7 +94,7 @@ export default class printProcess {
               ]).toArray();
             if (result.length==1){
                 return {id:result[0]._id,full_code:result[0].full_code,SN:result[0].code}
-            }else {
+            } else {
                 return false //no code found
             }
     }
@@ -217,15 +217,20 @@ export default class printProcess {
             }
 
             let serialization = await this.getDataBySmallestId(this.db)
+            if(serialization == false) {
+                throw new Error(`can't get any data`);
+            }
             let P_status ="no errors"
 
-            this.printer.send("21"); // clear buffer before start printing
+            await this.printer.send("21"); // clear buffer before start printing
             const msg =printerTemplate[1](this.details,"QR003")
             await this.printer.send(msg) 
+            await this.printer.send("11")
             while (serialization != null && (P_status === "no errors" || P_status=== "still full")){ // filling up the buffer first
-           // while (counter < 10){ // filling up the buffer first TODO: To remove this line of code
-                
-                P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}}`, serialization.full_code]) // goes to buffer
+                // await new Promise(resolve => setTimeout(resolve, 5000));
+                console.log(`serialization - ${serialization.id}`)
+                P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) // goes to buffer
+                console.log(`p status : ${P_status}`)
                 await this.db.collection('serialization')
         
                 .updateOne( { _id: serialization.id}, 
@@ -234,6 +239,7 @@ export default class printProcess {
                 this.full_code_queue.enqueue(serialization.full_code)
                 serialization = await this.getDataBySmallestId(this.db)
                 if (P_status === "now full"){
+                    console.log(`dfgh`)
                     break;
                 }
             }
@@ -241,7 +247,7 @@ export default class printProcess {
             this.printer.printCallback = async ()=> {
                 await this.callback()
             }
-            await this.printer.send("11") //start print
+            //await this.printer.send("11") //start print
             return "success"
         }catch(err){
             console.log(err)

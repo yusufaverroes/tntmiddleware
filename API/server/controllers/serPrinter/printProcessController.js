@@ -45,6 +45,7 @@ const stopPrinting = (req, res) => {
 
 const startPrinting = async (req, res) => {
     let missingBody=""
+    
     if(req.body.work_order_id){
         printingProcess.work_order_id = req.body.work_order_id
     }else{missingBody="work_order_id"}
@@ -75,7 +76,7 @@ const startPrinting = async (req, res) => {
         }else{
             return res.status(500).send({message:"unknown issue, printer is not started"})
         }
-    console.log(`is occupied ${printer.isOccupied}`)
+        console.log(`is occupied ${printer.isOccupied}`)
         //await printingProcess.print()
     }catch(err){
         console.log(err)

@@ -102,7 +102,7 @@ export default class TIJPrinter {
     
             let timeout = setTimeout(() => {
                 reject("Timeout occurred. No response from slave address."); // Reject with error message directly
-            }, 1000);
+            }, 2000);
     
             // Event listener for when response is received
             this.responseEvent.once('responseReceived', () => {
@@ -181,7 +181,7 @@ export default class TIJPrinter {
                 }
             }
     
-            createModuleQR(obj, x = 17, y = 33, scale = 18, rotation = 0, type = 'Data Matrix', faultToleranceLevel = 'H', size = 10, colorInverse = false, frameStyle = 'Blank', frameSize = 0) {
+            createModuleQR(obj, x = 17, y = 33, scale = 3, rotation = 0, type = 'Data Matrix', faultToleranceLevel = 'H', size = 10, colorInverse = false, frameStyle = 'Blank', frameSize = 0) {
                 const module = obj;
                 x = to16BitHex(x);
                 y = to16BitHex(y);
@@ -270,6 +270,7 @@ export default class TIJPrinter {
             //         })
             // }
             async sendRemoteFieldData(messages) {
+                console.log(`messages ${messages}`)
                 let numOfField = messages.length;
                 let numOfFieldHex = numOfField.toString(16).padStart(2, '0');
                 let data = "1d" + numOfFieldHex;
@@ -285,7 +286,7 @@ export default class TIJPrinter {
             
                 try {
                     const response = await this.send(data);
-            
+                    console.log(`responnya  ${response}`);
                     if (response[1] === 0x06) {
                         let P_status;
                         switch (response[3]) {
