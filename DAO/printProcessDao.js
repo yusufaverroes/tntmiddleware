@@ -184,7 +184,7 @@ export default class printProcess {
         }
        
         const printed = this.full_code_queue.dequeue()
-        await sendDataToAPI(`v1/work-order/${work_order_id}/assignment/${assignment_id}/serialization/printed`,{ 
+        await sendDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
             full_code:printed,
         }) 
         // When full_code_queue is empty, meaning it comes to end of the job printing. Need to stop printer job
@@ -223,7 +223,7 @@ export default class printProcess {
             let P_status ="no errors"
 
             await this.printer.send("21"); // clear buffer before start printing
-            const msg =printerTemplate[1](this.details,"QR003")
+            const msg =printerTemplate[1](this.details,"QR003") // sending 
             await this.printer.send(msg) 
             await this.printer.send("11")
             while (serialization != null && (P_status === "no errors" || P_status=== "still full")){ // filling up the buffer first
@@ -234,7 +234,7 @@ export default class printProcess {
                 await this.db.collection('serialization')
         
                 .updateOne( { _id: serialization.id}, 
-                            { $set: { status : this.sampling?"SAMPLING":"PRINTING"} } // update the status of the printed code upon pusing to buffer 
+                            { $set: { status : this.sampling?"SAMPLING":"PRINTING", update_at: Date.now()} } // update the status of the printed code upon pusing to buffer 
                             )
                 this.full_code_queue.enqueue(serialization.full_code)
                 serialization = await this.getDataBySmallestId(this.db)

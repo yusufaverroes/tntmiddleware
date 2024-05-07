@@ -64,7 +64,7 @@ const startPrinting = async (req, res) => {
         return res.status(404).send({message: `The templateId=${req.body.templateId} does not exist`})
     }
     if (printer.isOccupied===true){
-        return res.status(409).send({message: `This is printer is occupied for workOrderId=${printingProcess.work_order_id} and assignmentId =${printingProcess.assignment_id}`})
+        return res.status(409).send({message: `This printer is occupied for workOrderId=${printingProcess.work_order_id} and assignmentId =${printingProcess.assignment_id}`})
     }
     //TODO : ink leve is too low
     if (printer.running===false){

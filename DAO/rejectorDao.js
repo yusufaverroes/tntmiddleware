@@ -30,9 +30,9 @@ export default class Rejection {
                             await sleep(50);
                             console.log("Box Pass");
                         } else {
-                            await sleep(70);
+                            await sleep(20);
                             this.switch1.setValue(0);
-                            await sleep(10);
+                            await sleep(85);
                             let switchOpened = true;
                             while (switchOpened) {
                                 this.switch1.setValue(1);
