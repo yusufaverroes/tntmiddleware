@@ -375,7 +375,17 @@ export default class TIJPrinter {
                 
             // }
 
-     
+            async getBufNum(){
+               await this.send("33")
+                .then(responseBuffer => {
+                    if (responseBuffer[1] === 0x06){
+                        const bufNum = Buffer.from(responseBuffer[4]).readUIntLE(0, 1)
+                        return 
+                    }else{
+                        throw new Error("got Nack")
+                    }
+                })
+            }
     
         }
 

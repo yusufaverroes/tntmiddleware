@@ -73,10 +73,10 @@ const startPrinting = async (req, res) => {
     try {
         if (await printingProcess.printSetupChecks()==="success"){
             res.status(200).send({message:`Printing Process with assignment Id = ${printingProcess.assignment_id}, work order Id =${printingProcess.work_order_id}, and template Id = ${printingProcess.templateId} started`})
+            printingProcess.print().then(() =>{console.log("printer is running")})
         }else{
             return res.status(500).send({message:"unknown issue, printer is not started"})
         }
-        console.log(`is occupied ${printer.isOccupied}`)
         //await printingProcess.print()
     }catch(err){
         console.log(err)

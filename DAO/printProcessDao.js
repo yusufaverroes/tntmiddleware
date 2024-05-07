@@ -239,7 +239,7 @@ export default class printProcess {
                 this.full_code_queue.enqueue(serialization.full_code)
                 serialization = await this.getDataBySmallestId(this.db)
                 if (P_status === "now full"){
-                    console.log(`dfgh`)
+
                     break;
                 }
             }
@@ -254,11 +254,107 @@ export default class printProcess {
             return err
         }
     }
-    async print(){
-        // let serialization = await this.getDataBySmallestId(this.db)
-        // while (serialization!=null){
-        //}
+    async print(){ /// TODO: !!!!!!!! harusnyaaa pake while (ngisi sampe full), trs di itung berapakali ngisinya, itu variable dijadiin buat update delaynya deeehhhh
+        const MAX_BUFFER_SIZE = 10;
+        // let isBufferFull = false;
+        let delayTime=1500;
+        let fistPrintedFlag=false; //flag for telling that a first object has been printed
+        while (this.isOccupied) {   // Stop the looping if isOccpied is false
+        
+            const bufferNum = await this.printer.getBufNum(); // todo error handling
+            if (bufferNum < MAX_BUFFER_SIZE) {
+                fistPrintedFlag=true;
+                
+                while(true){
+                    let serialization = await this.getDataBySmallestId(this.db);
+                    P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) //Todo error handling
+                    if (P_status === "no errors") {
+                        await this.db.collection('serialization')
+                         .updateOne( { _id: serialization.id}, 
+                        { $set: { status : this.sampling?"SAMPLING":"PRINTING"} } // update the status of the printed code upon pusing to buffer 
+                        )
+                        this.full_code_queue.enqueue(serialization.full_code)
+                        const printed = this.full_code_queue.dequeue();
+                        await sendDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
+                            full_code:printed,
+                        }) 
+                    } else if (P_status === "now full") {
+                        break;
+                    }
+                }
+
+            } else {
+                isBufferFull = false; // Reset flag if buffer is no longer full
+            }
+        
+            // Adjust the delay time based on the feedback from the device
+            if (fistPrintedFlag){
+                const delTtemp = delayTime;
+                delayTime = (delayTime-(MAX_BUFFER_SIZE-1-bufferNum)*100) // targeting 9 items on buffer, if less than 9 substract by x*100 ms
+                if (delayTime!=delTtemp){
+                    console.log(`delay time has reduced to ${delayTime}`);
+                }
+            }
+            
+            
+            await new Promise(resolve => setTimeout(resolve, delayTime)) // The delay
+        }
+        
+
+        // function calculateDelayTime(bufferNum) {
+        //     const delTime = (delayTime-(MAX_BUFFER_SIZE-1-bufferNum)*100)
+        //     if (delTime===delayTime)
+        //     return 
+        //     // return Math.max(1000, (MAX_BUFFER_SIZE - bufferNum) * 500); // Minimum delay of 1 second, increasing delay as buffer fills up
+        // }
+        
+            
     }
+
+
+    // async print2(){
+    //     const MAX_BUFFER_SIZE = 10;
+    //     let isBufferFull = false;
+    //     let checking = true; // Flag to control the loop
+
+    //     let targetDelayTime = 100; // Initial target delay time in milliseconds
+    //     let lastCheckTime = Date.now();
+
+    //     function checkAndPushData() {
+    //         if (!checking) return; // Stop the recursion if checking is false
+
+    //         const bufferNum = getBufNum();
+    //         if (bufferNum < MAX_BUFFER_SIZE && !isBufferFull) {
+    //             const data = generateData(); // You'll need to implement this function to generate the data to push
+    //             const feedback = pushData(data);
+    //             if (feedback === "success") {
+    //                 console.log("Data pushed successfully.");
+    //             } else if (feedback === "is still full") {
+    //                 console.log("Buffer is still full. Cannot push data.");
+    //                 isBufferFull = true; // Set flag to avoid unnecessary checks until buffer is freed up
+    //             }
+    //         } else {
+    //             isBufferFull = false; // Reset flag if buffer is no longer full
+    //         }
+
+    //         const currentTime = Date.now();
+    //         const elapsedTime = currentTime - lastCheckTime;
+    //         lastCheckTime = currentTime;
+
+    //         // Adjust the delay time based on the elapsed time compared to the target delay time
+    //         const delayTimeAdjustmentFactor = 0.9; // Adjust this factor based on your preference
+    //         const adjustedDelayTime = targetDelayTime - elapsedTime * delayTimeAdjustmentFactor;
+
+    //         // Ensure the adjusted delay time is within a reasonable range
+    //         const minDelayTime = 1000; // Minimum delay time in milliseconds
+    //         const maxDelayTime = 10000; // Maximum delay time in milliseconds
+    //         const delayTime = Math.min(Math.max(adjustedDelayTime, minDelayTime), maxDelayTime);
+
+    //         setTimeout(checkAndPushData, delayTime);
+    //     }
+
+    // }
+    
     // async printSetupChecks (){
     //     this.db = await connect() // TODO: use mongoDB.js
     //     this.details = null
