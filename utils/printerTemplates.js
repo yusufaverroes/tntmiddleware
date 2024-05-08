@@ -16,7 +16,7 @@ let printerTemplate = [
     },
     function template2 (details, fileName){
         //const QRtext = printer.createModuleText(QRcode.full_code, false);
-        const field = printer.createModuleField(164,129,0,20,0,"Arial",12,0,1,0,0)
+        const field = printer.createModuleField(5,155,0,20,0,"Arial",15,0,1,0,0)
         const QRModule = ["0301"]
         const QR = printer.createModuleQR(QRModule);
         const BPOM = printer.createModuleText("BPOM RI", true, 25, 4, 0, 24, 0, "Arial",)

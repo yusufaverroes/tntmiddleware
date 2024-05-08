@@ -38,9 +38,12 @@ const setPrinterFormat = (req, res) => {
     })
 
 }
-const stopPrinting = (req, res) => {
-    printer.stop()
-    res.status(200)
+const stopPrinting = async (req, res) => {
+    printingProcess.isOccupied=false;
+    await printer.send(12)
+    await printer.send(21)
+    console.log("printer is successfully stopped")
+    res.status(200).send({message:"printer is successfully stopped"})
 }
 
 const startPrinting = async (req, res) => {
@@ -56,10 +59,10 @@ const startPrinting = async (req, res) => {
     if (missingBody!=""){
         return res.status(400).send({message: `Missing mandatory payload in request body. (${missingBody})`})
     }
-    if (printingProcess.workstationId!==req.params.workstationId){
-        console.log(workstationId)
-        return res.status(409).send({message: `The work station id not found/recognize  `})
-    }
+    // if (printingProcess.workstationId!==req.params.workstationId){
+    //     console.log(workstationId)
+    //     return res.status(409).send({message: `The work station id not found/recognize  `})
+    // }
     if((req.body.templateId) && req.body.templateId >printerTemplate.length){
         return res.status(404).send({message: `The templateId=${req.body.templateId} does not exist`})
     }
@@ -86,8 +89,8 @@ const startPrinting = async (req, res) => {
 }
 
 const printerDetails = (req, res) =>{
-    const workstationId = req.params.workstationId
-    if (printer.workstationId===workstationId){
+    // const workstationId = req.params.workstationId
+    // if (printer.workstationId===workstationId){
         res.status(200).send({
             ipAddress:printer.ip,
             port:printer.port,
@@ -95,12 +98,12 @@ const printerDetails = (req, res) =>{
             inkLevel:90, //TODO: get the real one
             templateId:0
         })
-    }else{
-        res.status(404).send({message:"no printer assigned on this workstation"})
-    }
+    // }else{
+    //     res.status(404).send({message:"no printer assigned on this workstation"})
+    // }
 }
 // const getInkStattus = (req, res) => {
 //    let response = printer.send(PRINT_MASSGAE.InkStaus)
 //     res.send(response)
 // }
-export default {startPrinting, printerDetails}
+export default {startPrinting, printerDetails, stopPrinting}

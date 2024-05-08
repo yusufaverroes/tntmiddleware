@@ -1,5 +1,5 @@
 import net from 'net';
-import sendDataToAPI from '../API/APICall/apiCall.js'
+import {sendDataToAPI} from '../API/APICall/apiCall.js'
 import { printingProcess } from '../index.js';
 
 function removeSpacesAndNewlines(inputString) {

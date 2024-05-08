@@ -4,9 +4,11 @@ import printProcessController from '../controllers/serPrinter/printProcessContro
  * @param {e.Application} app
  */
 export default function printRoute(app) {
-    app.route("/v1/printer/:workstationId/start")
+    app.route("/v1/printer/start")
         .post(printProcessController.startPrinting)
-    app.route('/v1/printer/:workstationId')
+    app.route("/v1/printer/stop")
+        .post(printProcessController.stopPrinting)
+    app.route('/v1/printer')
         .get(printProcessController.printerDetails)
 
 }

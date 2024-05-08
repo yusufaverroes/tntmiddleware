@@ -28,7 +28,7 @@ function formatCurrencyIDR(amount, locale = 'id-ID') {
 import Queue from '../utils/queue.js';
 import printerTemplate from '../utils/printerTemplates.js';
 import { connect, close } from './db.js';
-import sendDataToAPI from '../API/APICall/apiCall.js';
+import {sendDataToAPI1} from '../API/APICall/apiCall.js';
 
 export default class printProcess {
     constructor(printer) {
@@ -175,7 +175,7 @@ export default class printProcess {
         let serialization = await this.getDataBySmallestId(this.db)
         if(serialization!=null){
             console.log(`ser : ${serialization}`)
-            await this.printer.sendRemoteFieldData([`SN ${serialization.SN}}`, serialization.full_code])
+            await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code])
             await this.db.collection('serialization')
                          .updateOne( { _id: serialization.id}, 
                         { $set: { status : this.sampling?"SAMPLING":"PRINTING"} } // update the status of the printed code upon pusing to buffer 
@@ -184,7 +184,7 @@ export default class printProcess {
         }
        
         const printed = this.full_code_queue.dequeue()
-        await sendDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
+        await sendDataToAPI1(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
             full_code:printed,
         }) 
         // When full_code_queue is empty, meaning it comes to end of the job printing. Need to stop printer job
@@ -244,9 +244,9 @@ export default class printProcess {
                 }
             }
             this.printer.isOccupied = true;
-            this.printer.printCallback = async ()=> {
-                await this.callback()
-            }
+            // this.printer.printCallback = async ()=> {
+            //     await this.callback()
+            // }
             //await this.printer.send("11") //start print
             return "success"
         }catch(err){
@@ -254,43 +254,96 @@ export default class printProcess {
             return err
         }
     }
-    async print(){ /// TODO: !!!!!!!! harusnyaaa pake while (ngisi sampe full), trs di itung berapakali ngisinya, itu variable dijadiin buat update delaynya deeehhhh
-        const MAX_BUFFER_SIZE = 10;
-        // let isBufferFull = false;
-        let delayTime=1500;
-        let fistPrintedFlag=false; //flag for telling that a first object has been printed
-        while (this.isOccupied) {   // Stop the looping if isOccpied is false
+    // async print(){ /// TODO: !!!!!!!! harusnyaaa pake while (ngisi sampe full), trs di itung berapakali ngisinya, itu variable dijadiin buat update delaynya deeehhhh
+    //     const MAX_BUFFER_SIZE = 5;
+    //     // let isBufferFull = false;
+    //     let delayTime=1500;
+    //     let fistPrintedFlag=false; //flag for telling that a first object has been printed
+    //     while (this.isOccupied) {   // Stop the looping if isOccpied is false
         
-            const bufferNum = await this.printer.getBufNum(); // todo error handling
-            if (bufferNum < MAX_BUFFER_SIZE) {
-                fistPrintedFlag=true;
+    //         const bufferNum = await this.printer.getBufNum(); // todo error handling
+    //         if (bufferNum < MAX_BUFFER_SIZE) {
+    //             fistPrintedFlag=true;
                 
-                while(true){
-                    let serialization = await this.getDataBySmallestId(this.db);
-                    P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) //Todo error handling
-                    if (P_status === "no errors") {
-                        await this.db.collection('serialization')
-                         .updateOne( { _id: serialization.id}, 
-                        { $set: { status : this.sampling?"SAMPLING":"PRINTING"} } // update the status of the printed code upon pusing to buffer 
-                        )
-                        this.full_code_queue.enqueue(serialization.full_code)
-                        const printed = this.full_code_queue.dequeue();
-                        await sendDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
-                            full_code:printed,
-                        }) 
-                    } else if (P_status === "now full") {
-                        break;
-                    }
-                }
+    //             while(true){
+    //                 let serialization = await this.getDataBySmallestId(this.db);
+    //                 P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) //Todo error handling
+    //                 if (P_status === "no errors") {
+    //                     await this.db.collection('serialization')
+    //                      .updateOne( { _id: serialization.id}, 
+    //                     { $set: { status : this.sampling?"SAMPLING":"PRINTING"} } // update the status of the printed code upon pusing to buffer 
+    //                     )
+    //                     this.full_code_queue.enqueue(serialization.full_code)
+    //                     const printed = this.full_code_queue.dequeue();
+    //                     await sendDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
+    //                         full_code:printed,
+    //                     }) 
+    //                 } else if (P_status === "now full") {
+    //                     break;
+    //                 }
+    //             }
 
-            } else {
-                isBufferFull = false; // Reset flag if buffer is no longer full
-            }
+    //         } else {
+    //             isBufferFull = false; // Reset flag if buffer is no longer full
+    //         }
         
-            // Adjust the delay time based on the feedback from the device
-            if (fistPrintedFlag){
+    //         // Adjust the delay time based on the feedback from the device
+    //         if (fistPrintedFlag){
+    //             const delTtemp = delayTime;
+    //             delayTime = (delayTime-(MAX_BUFFER_SIZE-1-bufferNum)*100) // targeting 9 items on buffer, if less than 9 substract by x*100 ms
+    //             if (delayTime!=delTtemp){
+    //                 console.log(`delay time has reduced to ${delayTime}`);
+    //             }
+    //         }
+            
+            
+    //         await new Promise(resolve => setTimeout(resolve, delayTime)) // The delay
+    //     }
+        
+
+    //     // function calculateDelayTime(bufferNum) {
+    //     //     const delTime = (delayTime-(MAX_BUFFER_SIZE-1-bufferNum)*100)
+    //     //     if (delTime===delayTime)
+    //     //     return 
+    //     //     // return Math.max(1000, (MAX_BUFFER_SIZE - bufferNum) * 500); // Minimum delay of 1 second, increasing delay as buffer fills up
+    //     // }
+        
+            
+    // }
+
+    async print(){
+        console.log("test1")
+        let delayTime=5000;
+        let fistPrintedFlag=false; //flag for telling that a first object has been printed
+        let filledBufNum=0;
+        let P_status="no errors"
+        while (this.printer.isOccupied){
+            
+            while(true){
+                console.log("test2")
+                let serialization = await this.getDataBySmallestId(this.db);
+                P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) //Todo error handling
+                if (P_status === "no errors" || P_status ==="now full") {
+                    await this.db.collection('serialization')
+                     .updateOne( { _id: serialization.id}, 
+                    { $set: { status : this.sampling?"SAMPLING":"PRINTING"} } // update the status of the printed code upon pusing to buffer 
+                    )
+                    this.full_code_queue.enqueue(serialization.full_code)
+                    const printed = this.full_code_queue.dequeue();
+                    await sendDataToAPI1(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
+                        full_code:printed,
+                    }) 
+                    filledBufNum++;
+                    fistPrintedFlag=true
+                    console.log("pushed to buffer")
+                } else if (P_status === "still full") {
+                    break;
+                }
+            }
+            if (fistPrintedFlag){ //apply dynamic delay time logic
                 const delTtemp = delayTime;
-                delayTime = (delayTime-(MAX_BUFFER_SIZE-1-bufferNum)*100) // targeting 9 items on buffer, if less than 9 substract by x*100 ms
+                if (filledBufNum>0){delayTime = (delayTime-(filledBufNum-1)*100) }// targeting 9 items on buffer, if less than 9 substract by x*100 ms
+                filledBufNum=0;
                 if (delayTime!=delTtemp){
                     console.log(`delay time has reduced to ${delayTime}`);
                 }
@@ -298,17 +351,9 @@ export default class printProcess {
             
             
             await new Promise(resolve => setTimeout(resolve, delayTime)) // The delay
-        }
-        
 
-        // function calculateDelayTime(bufferNum) {
-        //     const delTime = (delayTime-(MAX_BUFFER_SIZE-1-bufferNum)*100)
-        //     if (delTime===delayTime)
-        //     return 
-        //     // return Math.max(1000, (MAX_BUFFER_SIZE - bufferNum) * 500); // Minimum delay of 1 second, increasing delay as buffer fills up
-        // }
-        
-            
+
+        }
     }
 
 
