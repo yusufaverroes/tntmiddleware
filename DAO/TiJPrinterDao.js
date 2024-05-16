@@ -43,11 +43,11 @@ export default class TIJPrinter {
         this.socket.connect(this.port, this.ip, () => {
             this.running = true;
             this.listenerThread = this.listenForResponses();
-            console.log(`Printer Socket established on port ${this.port} and IP ${this.ip}`);
+            console.log(`[Printer] Socket established on port ${this.port} and IP ${this.ip}`);
         });
 
         this.socket.on('error', (err) => {
-            console.error("Printer: Connection error:", err);
+            console.error("[Printer] Connection error:", err);
             this.running = false;
         });
     }
@@ -65,11 +65,11 @@ export default class TIJPrinter {
         });
 
         this.socket.on('error', (err) => {
-            console.error("Printer: Error listening for responses:", err);
+            console.error("[Printer] Error listening for responses:", err);
         });
 
         this.socket.on('close', () => {
-            console.log("Printer: Listening stopped");
+            console.log("[Printer] Listening stopped");
         });
     }
 
@@ -84,7 +84,7 @@ export default class TIJPrinter {
 
     }
 
-    send(hexData, reshandler = () => {}) {
+    send(hexData, reshandler = () => {}, commandName="") {
         return new Promise((resolve, reject) => {
             if (!this.running) {
                 reject("Not connected to a printer"); // Reject with error message directly
@@ -101,15 +101,14 @@ export default class TIJPrinter {
             this.socket.write(hexBytesWithChecksum);
     
             let timeout = setTimeout(() => {
-                reject("Timeout occurred. No response from slave address."); // Reject with error message directly
+                reject(`[Printer]Timeout occurred. No response from printer. Sent Command : ${commandName} `); // Reject with error message directly
             }, 2000);
     
             // Event listener for when response is received
             this.responseEvent.once('responseReceived', () => {
                 clearTimeout(timeout);
-                console.log("Response received:", this.responseBuffer); // Add this line for debugging
+                // console.log("Response received:", this.responseBuffer); // Add this line for debugging
                 resolve(this.responseBuffer);
-                console.log(this.responseBuffer)
                 reshandler(this.responseBuffer);
             });
         });
@@ -224,51 +223,7 @@ export default class TIJPrinter {
                 console.log(`data field : ${data}`)
                 return data
             }
-            // async sendRemoteFieldData(messages){
-            //     let numOfField = messages.length
-            //     let numOfFieldHex = messages.length.toString(16).padStart(2, '0');
-            //     let data = "1d" + numOfFieldHex
-            //     for(let i =0; i<numOfField;i++){
-            //         const fieldId = i.toString(16).padStart(2, '0');
-            //         const lengthOfMessage= messages[i].length.toString(16).padStart(2, '0');
-            //         const messageHex = Buffer.from(messages[i]).toString('hex');
-            //         data=data+ fieldId + lengthOfMessage+ messageHex
-            //     }
-            //     console.log(`data : ${data}`)
-            //     return await this.send(data)
-            //         .then(response => {
-            //             console.log(response);
-            //             console.log(`1D response : ${response}`)
-            //             if (response[2]===0x16){
-            //                 let P_status 
-            //                 switch (statusData[3]) {
-            //                     case 0x00:
-            //                         P_status = "no errors";
-            //                         break;
-            //                     case 0x01:
-            //                         P_status = "now full";
-            //                         break;
-            //                     case 0x12:
-            //                         P_status = "still full";
-            //                         break;
-            //                     case 0x12:
-            //                         P_status = "one or more printer errors exist";
-            //                         break;
-            //                     case 0x12:
-            //                         P_status = "print not started";
-            //                         break;
-            //                     default:
-            //                         P_status = "unknown";
-            //                     return P_status
-            //                 }
-            //             }else{
-            //                 return "NAK"
-            //             }
-            //         })
-            //         .catch(err => {
-            //             console.log(err)
-            //         })
-            // }
+
             async sendRemoteFieldData(messages) {
                 console.log(`messages ${messages}`)
                 let numOfField = messages.length;
@@ -282,11 +237,10 @@ export default class TIJPrinter {
                     data = data + fieldId + lengthOfMessage + messageHex;
                 }
             
-                console.log(`data : ${data}`);
+                // console.log(`data : ${data}`);
             
                 try {
                     const response = await this.send(data);
-                    console.log(`responnya  ${response}`);
                     if (response[1] === 0x06) {
                         let P_status;
                         switch (response[3]) {
@@ -321,7 +275,7 @@ export default class TIJPrinter {
             requestPrinterStatus() {
                 this.send("14") // request status code
                     .then(responseBuffer => {
-                        console.log("Response received:", responseBuffer);
+                        // console.log("Response received:", responseBuffer);
             
                         // Extract printer status data from responseBuffer
                         const statusData = responseBuffer.slice(4, -3); //  status data is between 4th and 3rd from the last bytes

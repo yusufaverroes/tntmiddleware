@@ -6,6 +6,7 @@ export default class Rejection {
         this.responseQueue = responseQueue;
         this.flag = false;
         this.running = false; // Flag to track if the process is running
+        this.delay=85 //ms
     }
 
     async start() {
@@ -32,7 +33,7 @@ export default class Rejection {
                         } else {
                             await sleep(20);
                             this.switch1.setValue(0);
-                            await sleep(85);
+                            await sleep(this.delay);
                             let switchOpened = true;
                             while (switchOpened) {
                                 this.switch1.setValue(1);

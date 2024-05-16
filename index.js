@@ -9,6 +9,8 @@ import Queue from './utils/queue.js';
 import pkg from 'node-libgpiod';
 import Rejector from './DAO/rejectorDao.js'
 import MongoDB from './DAO/mongoDB.js';
+import WebSocketClient from './DAO/webSocketClient.js'
+import AggregationCam from './DAO/aggregationCamDao.js';
 process.on('unhandledRejection', (err) => {
     console.error('Unhandled Promise Rejection:', err);
     // Handle the error gracefully or log it
@@ -33,6 +35,10 @@ const printer = new TIJPrinter(process.env.TiJPrinter_IP, process.env.TiJPrinter
 printer.connect()
 await new Promise(resolve => setTimeout(resolve, 500));
 const printingProcess = new printProcess(printer)
+const wsAggregation = new WebSocketClient()
+await wsAggregation.connect()
+console.log(`[Websocket] status: ${wsAggregation.status}`)
+const aggCam = new AggregationCam(wsAggregation)
 export  {printingProcess,printer, serialCamera, serQueue}
 startHTTPServer(process.env.SERVER_PORT)
 

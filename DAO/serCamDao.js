@@ -78,7 +78,7 @@ export default class serCam {
         let result=false
         let reason=null
         let code = data.code
-        console.log(identifikasi_pattern.test(code), otentifikasi_pattern1.test(code), otentifikasi_pattern2.test(code))
+        // console.log(identifikasi_pattern.test(code), otentifikasi_pattern1.test(code), otentifikasi_pattern2.test(code))
         if (identifikasi_pattern.test(code) || otentifikasi_pattern1.test(code) || otentifikasi_pattern2.test(code)) {
             console.log("Data is in correct format:", code);
             console.log(data.accuracy)
