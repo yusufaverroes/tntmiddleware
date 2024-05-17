@@ -34,7 +34,7 @@ class AggregationCam {
           return value.code
         })
         
-        await sendDataToAPI(`v1/work-order/active-job/aggregation`,{ // TODO: what if its not reaching the API
+        await sendDataToAPI(`v1/work-order/active-job/aggregation`,{ 
           serialization_codes:codes
           
       }) 

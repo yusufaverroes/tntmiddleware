@@ -196,10 +196,10 @@ export default class printProcess {
             }
             let P_status ="no errors"
 
-            await this.printer.send("21"); // clear buffer before start printing
+            await this.printer.clearBuffers() // clear buffer before start printing
             const msg =printerTemplate[1](this.details,"QR003") // sending 
             await this.printer.send(msg) 
-            await this.printer.send("11")
+            await this.printer.startPrint()// start print
             while (serialization != null && (P_status === "no errors" || P_status=== "still full")){ // filling up the buffer first
                 // await new Promise(resolve => setTimeout(resolve, 5000));
                 console.log(`serialization - ${serialization.id}`)

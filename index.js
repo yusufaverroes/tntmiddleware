@@ -39,7 +39,7 @@ const wsAggregation = new WebSocketClient()
 await wsAggregation.connect()
 console.log(`[Websocket] status: ${wsAggregation.status}`)
 const aggCam = new AggregationCam(wsAggregation)
-export  {printingProcess,printer, serialCamera, serQueue}
+export  {printingProcess,printer, serialCamera, serQueue, rejector}
 startHTTPServer(process.env.SERVER_PORT)
 
 

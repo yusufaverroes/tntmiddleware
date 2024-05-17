@@ -84,7 +84,7 @@ export default class TIJPrinter {
 
     }
 
-    send(hexData, reshandler = () => {}, commandName="") {
+    send(hexData, commandName="") {
         return new Promise((resolve, reject) => {
             if (!this.running) {
                 reject("Not connected to a printer"); // Reject with error message directly
@@ -109,7 +109,7 @@ export default class TIJPrinter {
                 clearTimeout(timeout);
                 // console.log("Response received:", this.responseBuffer); // Add this line for debugging
                 resolve(this.responseBuffer);
-                reshandler(this.responseBuffer);
+               // reshandler(this.responseBuffer);
             });
         });
     }
@@ -204,7 +204,7 @@ export default class TIJPrinter {
                 return data;
             }
             createModuleField(x = 34, y = 28, rotation = 0, fontSize = 64, space = 0, fontName = "Lato", textLenght=12, id=1, source=1, coder=0, alignment=0){
-                
+               try{ 
                 x = to16BitHex(x);
                 y = to16BitHex(y);
                 const rotData = { 0: "00", 90: "01", 180: "02", 270: "03" };
@@ -222,10 +222,15 @@ export default class TIJPrinter {
                 const data = `03${x}${y}${rotation}${space}${fontSize}${fontLen}${fontName}${80}${id}${textLenght}`;
                 console.log(`data field : ${data}`)
                 return data
+               }catch(err){
+                console.log(`[Printer] Create Module Field error: ${err}`)
+                throw new Error
+               }
             }
 
             async sendRemoteFieldData(messages) {
-                console.log(`messages ${messages}`)
+                // console.log(`messages ${messages}`)
+                try {
                 let numOfField = messages.length;
                 let numOfFieldHex = numOfField.toString(16).padStart(2, '0');
                 let data = "1d" + numOfFieldHex;
@@ -239,8 +244,8 @@ export default class TIJPrinter {
             
                 // console.log(`data : ${data}`);
             
-                try {
-                    const response = await this.send(data);
+                
+                    const response = await this.send(data, "Download Remote Field Data(1D)");
                     if (response[1] === 0x06) {
                         let P_status;
                         switch (response[3]) {
@@ -266,14 +271,14 @@ export default class TIJPrinter {
                     } else {
                         return "NAK";
                     }
-                } catch (err) {
-                    console.log(err);
-                    throw err;
+                } catch (error) {
+                    // console.log(err);
+                    throw new Error (`[Printer] Download Remote Field Data error: ${error}`); 
                 }
             }
             
             requestPrinterStatus() {
-                this.send("14") // request status code
+                this.send("14", "Request Printer Status(14)") // request status code
                     .then(responseBuffer => {
                         // console.log("Response received:", responseBuffer);
             
@@ -318,28 +323,117 @@ export default class TIJPrinter {
                         return result;
                     })
                     .catch(error => {
-                        // Handle errors
-                        console.error("Error:", error);
-                        // Additional error handling here
-                        throw error; 
+                        throw new Error (`[Printer] Request Printer Status error : ${error}`); 
                     });
 
             }
-            // uploadTemplateMSG(msg, fileName){
-                
-            // }
+
 
             async getBufNum(){
-               await this.send("33")
+               await this.send("33", "Request the number of buffers of Remote Field(33)")
                 .then(responseBuffer => {
                     if (responseBuffer[1] === 0x06){
                         const bufNum = Buffer.from(responseBuffer[4]).readUIntLE(0, 1)
-                        return 
+                        return bufNum
                     }else{
-                        throw new Error("got Nack")
+                        throw new Error("got NACK")
                     }
+                }).catch((err)=>{
+                    throw new Error (`[Printer] Request the number of buffers of Remote Field(33) error : ${err}`); 
                 })
             }
     
+        
+         async clearBuffers(){
+            await this.send("21", "Clear Buffers of 1D(21)")
+             .then(responseBuffer => {
+                 if (responseBuffer[1] === 0x06){
+                     return "[Printer] Buffers cleared"
+                 }else{
+                     throw new Error("got NACK")
+                 }
+             }).catch((err) =>{
+                throw new Error (`[Printer] Clear Buffers of 1D(21) error : ${err}`); 
+             })
+         }
+         async startPrint(){
+            
+            await this.send("11", "Start Print(11)")
+             .then(responseBuffer => {
+                 if (responseBuffer[1] === 0x06){
+                        switch (responseBuffer[3]) { // P_status
+                            case 0x00:  
+                                console.log("[Printer] Print started successfully.")
+                                return true;
+                            case 0x01:
+                                throw new Error("One or more printer errors exist.")
+                            case 0x02:
+                                console.log("[Printer] Print not idle. The print has been started already.")
+                                break;
+                            default:
+                                throw new Error("unknown P_Status") ;
+                        }
+                    
+                 }else{
+                     throw new Error("got NACK)")
+                 }
+             }).catch((err) =>{
+                throw new Error (`[Printer] Start Print(11) error : ${err}`); 
+             })
+         }
+
+         async stopPrint(){
+            
+            await this.send("12", "Stop Print(12)")
+             .then(responseBuffer => {
+                 if (responseBuffer[1] === 0x06){
+                        switch (responseBuffer[3]) { // P_status
+                            case 0x00:  
+                                console.log("[Printer] Print stopped successfully.")
+                                return true;
+                            case 0x01:
+                                console.log("[Printer] Print not started. The print has been stopped.")
+                                return true;
+                            default:
+                                throw new Error("unknown P_Status") ;
+                        }
+                    
+                 }else{
+                     throw new Error("got NACK")
+                 }
+             }).catch((err) =>{
+                throw new Error (`[Printer] Start Print(11) error : ${err}`); 
+             })
+         }
+         async  requestInkRemains() {
+            try {
+                const responseBuffer = await this.send("26FF", "Request Ink Remains (26)");
+                
+                if (responseBuffer[1] === 0x06) {  // Check if ACK
+                    switch (responseBuffer[3]) {   // P_Status
+                        case 0x00:
+                        case 0x12: // Handle both 'No errors' and 'Succeeded but print not started'
+                            const inkLevels = [];
+                            // Loop through the ink level bytes (from 5th to the 3rd last byte)
+                            for (let i = 5; i < responseBuffer.length - 3; i++) {
+                                inkLevels.push(parseInt(responseBuffer[i], 16)); // Convert hex to decimal
+                            }
+                            console.log("[Printer] Ink levels:", inkLevels);
+                            return inkLevels;
+                        case 0x01:
+                            throw new Error("One or more printer errors exist.");
+                        default:
+                            throw new Error("unknown P_Status");
+                    }
+                } else {
+                    throw new Error("got NACK");
+                }
+            } catch (err) {
+                throw new Error(`[Printer] Request Ink Remains (26) error: ${err.message}`);
+            }
         }
+        
+ 
+     }
+        
 

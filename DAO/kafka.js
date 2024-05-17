@@ -1,40 +1,50 @@
 import { Kafka } from 'kafkajs';
 
-// Define Kafka broker(s)
-const kafka = new Kafka({
-  clientId: 'kafka',
-  brokers: ['localhost:9092'] //todo : put on env
-});
-
-// Create a Kafka producer
-const producer = kafka.producer();
-
-// Function to send messages
-const sendMessage = async (topic, message) => {
-  try {
-    await producer.send({
-      topic,
-      messages: [
-        { value: message }
-      ]
+class KafkaProducer {
+  constructor(clientId, brokers) {
+    this.kafka = new Kafka({
+      clientId,
+      brokers
     });
-    console.log('Message sent successfully:', message);
-  } catch (error) {
-    console.error('Error sending message:', error);
+    this.producer = this.kafka.producer();
+  }
+
+  async connect() {
+    try {
+      await this.producer.connect();
+      console.log('Connected to Kafka broker.');
+    } catch (error) {
+      console.error('Error connecting to Kafka broker:', error);
+    }
+  }
+
+  async sendMessage(topic, message) {
+    try {
+      await this.producer.send({
+        topic,
+        messages: [{ value: message }]
+      });
+      console.log('Message sent successfully:', message);
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  }
+
+  async disconnect() {
+    try {
+      await this.producer.disconnect();
+      console.log('Producer disconnected.');
+    } catch (error) {
+      console.error('Error disconnecting producer:', error);
+    }
+  }
+
+  async run(topic, message) {
+    try {
+      await this.connect();
+      await this.sendMessage(topic, message);
+    } finally {
+      await this.disconnect();
+    }
   }
 }
-
-// Connect to Kafka broker and send messages
-const run = async () => {
-  await producer.connect();
-
-  // Send a sample message
-  await sendMessage('my-topic', 'Hello Kafka!');
-
-  // Close the producer after sending messages
-  await producer.disconnect();
-}
-
-// Run the producer
-run().catch(console.error);
-
