@@ -11,16 +11,18 @@ export default class Rejection {
 
     async start() {
         
-        if (this.running) return; // Don't start if already running
+        if (this.running){
+            console.log("[Rejector] Rejector cannot be started twice") 
+            return}; // Don't start if already running
         this.running = true; // Set running flag to true
-
+        
         try {
             this.flag = false;
             while (!this.flag) {
                 await sleep(50)
                 let sensorValue = this.sensor.getValue();
                 if (sensorValue === 1) {
-                    console.log("detected")
+                    console.log("[Rejector] an object is detected")
                     if (!this.responseQueue.isEmpty()) {
                         const getresponse = this.responseQueue.dequeue();
                         if (getresponse) {
@@ -29,7 +31,7 @@ export default class Rejection {
                                 sensorValue = this.sensor.getValue();
                             }
                             await sleep(50);
-                            console.log("Box Pass");
+                            console.log("[Rejector] an object is passed");
                         } else {
                             await sleep(20);
                             this.switch1.setValue(0);
@@ -43,7 +45,7 @@ export default class Rejection {
                                 }
                                 switchOpened = false;
                             }
-                            console.log("Rejected");
+                            console.log("[Rejector] an object is rejected");
 
                             await sleep(50);
                         }

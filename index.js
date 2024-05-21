@@ -15,31 +15,35 @@ process.on('unhandledRejection', (err) => {
     console.error('Unhandled Promise Rejection:', err);
     // Handle the error gracefully or log it
 });
-const db = new MongoDB(process.env.MONGODB_URI, process.env.DATABASE_NAME)
-db.connect()
-const { version, Chip, Line } = pkg;
+const mongoDB = new MongoDB(process.env.MONGODB_URI, process.env.DATABASE_NAME) // settiing up mongodb connection
+mongoDB.connect()
+
+const { version, Chip, Line } = pkg; //setting up GPIOs
 global.chip = new Chip(4)
 global.output = new Line(chip, process.env.REJECTOR_OUTPUT_PIN); output.requestOutputMode();
 global.input = new Line(chip, process.env.REJECTOR_INPUT_PIN); input.requestInputMode();
 output.setValue(1)
 
-const serQueue = new Queue();
-const rejector = new Rejector(input,output, serQueue)
-rejector.start()
+const serQueue = new Queue(); // instancing queue class for serialization
+const rejector = new Rejector(input,output, serQueue) //instancing Rejector class
+rejector.start() 
 
-const serialCamera =  new serCam(process.env.SERIALIZATION_CAM_IP,process.env.SERIALIZATION_CAM_PORT,"1",serQueue);
+const serialCamera =  new serCam(process.env.SERIALIZATION_CAM_IP,process.env.SERIALIZATION_CAM_PORT,"1",serQueue); //instancing serCam class for serialization Camera
 serialCamera.connect()
 
-const printer = new TIJPrinter(process.env.TiJPrinter_IP, process.env.TiJPrinter_PORT,process.env.TiJPrinter_SLAVE_ADDRESS,"1")
-
+const printer = new TIJPrinter(process.env.TiJPrinter_IP, process.env.TiJPrinter_PORT,process.env.TiJPrinter_SLAVE_ADDRESS,"1")//instancing printer class 
 printer.connect()
 await new Promise(resolve => setTimeout(resolve, 500));
-const printingProcess = new printProcess(printer)
-const wsAggregation = new WebSocketClient()
+
+const printingProcess = new printProcess(printer, mongoDB.db) // instancing printing process class with printer and mongoDB instances as the constructor
+
+const wsAggregation = new WebSocketClient() // instancing websocket client class for aggregation
 await wsAggregation.connect()
-console.log(`[Websocket] status: ${wsAggregation.status}`)
-const aggCam = new AggregationCam(wsAggregation)
-export  {printingProcess,printer, serialCamera, serQueue, rejector}
+console.log(`[Websocket] status: ${wsAggregation.status}`) 
+
+const aggCam = new AggregationCam(wsAggregation)// instancing aggregation cam class using wsAggregation instance
+
+export  {printingProcess,printer, serialCamera, serQueue, rejector}  
 startHTTPServer(process.env.SERVER_PORT)
 
 

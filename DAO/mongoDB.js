@@ -8,12 +8,12 @@ export default class MongoDB {
     }
     async connect() {
         try {
-            console.log("connecting...")
+            console.log("connecting to MongoDB...")
             await this.client.connect();
-            console.log('Connected to the database');
+            console.log('Connected to the MongoDB');
             this.client.db(this.databaseName)
         } catch (err) {
-            console.error('Error connecting to the database:', err);
+            console.error('[MongoDB] Error connecting to the MonggoDB, error:', err);
             throw err;
         }
     }
@@ -21,13 +21,13 @@ export default class MongoDB {
     async  close() {
         try {
             await client.close();
-            console.log('Connection to the database closed');
+            console.log('[MongoDB] Connection to the database closed');
         } catch (err) {
-            console.error('Error closing the database connection:', err);
+            console.error('[MongoDB] Error closing the database connection:', err);
         }
     }
     
-    async  update(collectionName, id, field, newItem) {
+    async update(collectionName, id, field, newItem) {
         try {
             const collection = db.collection(collectionName);
             
@@ -39,10 +39,10 @@ export default class MongoDB {
             
             console.log(`Field '${field}' updated successfully for document with id '${id}'`);
         } catch (err) {
-            console.error('Error updating document:', err);
-            throw err;
+            throw new Error ('[MongoDB] Error updating document:', err);
         }
     }
+   
     
 
 }

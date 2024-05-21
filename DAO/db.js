@@ -13,11 +13,10 @@ const client = new MongoClient(uri);
 async function connect() {
     try {
         await client.connect();
-        console.log('Connected to the database');
+        console.log('[MongoDB] Connected to the database');
         return client.db('seratonic');
     } catch (err) {
-        console.error('Error connecting to the database:', err);
-        throw err;
+        throw new Error('[MongoDB] Error connecting to the database:', err);
     }
 }
 

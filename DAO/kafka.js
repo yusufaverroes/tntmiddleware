@@ -1,6 +1,6 @@
 import { Kafka } from 'kafkajs';
 
-class KafkaProducer {
+export default class KafkaProducer {
   constructor(clientId, brokers) {
     this.kafka = new Kafka({
       clientId,

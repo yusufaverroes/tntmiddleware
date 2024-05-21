@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 
-  export async function sendDataToAPI(route, data) {
+  export async function postDataToAPI(route, data) {
   try {
     const response = await axios.post('http://api-station.seratonic-rnd.local/'+route, data, 
     {
@@ -13,11 +13,11 @@ dotenv.config();
   })
     console.log('API response:', response.data);
   } catch (error) {
-    console.error('Error sending data to API:', error.message);
+    console.error('[API Call] Error post data to API:', error.message);
   }
 }
 
-export async function sendDataToAPI1(route, data) {
+export async function putDataToAPI(route, data) {
   try {
     const response = await axios.put('http://api-station.seratonic-rnd.local/'+route, data, 
     {
@@ -27,7 +27,7 @@ export async function sendDataToAPI1(route, data) {
   })
     console.log('API response:', response.data);
   } catch (error) {
-    console.error('Error sending data to API:', error.message);
+    console.error('[API Call] Error put data to API:', error.message);
   }
 }
 

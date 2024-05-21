@@ -25,18 +25,18 @@ export default class serCam {
         this.socket.connect(this.port, this.ip, () => {
             this.running = true;
             this.listenerThread = this.listenForResponses();
-            console.log("serCam Socket established");
+            console.log("[Ser Cam] Socket established");
         });
 
         this.socket.on('error', (err) => {
-            console.error("Connection error:", err);
+            console.error("[Ser Cam] Connection error:", err);
             this.running = false;
         });
     }
     disconnect() {
         this.running = false;
         this.socket.destroy();
-        console.log("Disconnected");
+        console.log("[Ser Cam] Disconnected");
     }
     separateStringToObject(input) {
         // Split the input string by ":"
@@ -63,11 +63,12 @@ export default class serCam {
         });
 
         this.socket.on('error', (err) => {
-            console.error("Error listening for responses:", err);
+            console.error("[Ser Cam] Error listening for responses:", err);
         });
 
         this.socket.on('close', () => {
-            console.log("Listening stopped");
+            console.log("[Ser Cam] Listening stopped");
+            this.running = false;
         });
     }
 
@@ -78,9 +79,8 @@ export default class serCam {
         let result=false
         let reason=null
         let code = data.code
-        // console.log(identifikasi_pattern.test(code), otentifikasi_pattern1.test(code), otentifikasi_pattern2.test(code))
         if (identifikasi_pattern.test(code) || otentifikasi_pattern1.test(code) || otentifikasi_pattern2.test(code)) {
-            console.log("Data is in correct format:", code);
+            console.log("[Ser Cam] Data is in a correct format:", code);
             console.log(data.accuracy)
             if (this.accuracyThreshold<=data.accuracy){
                 result = true
@@ -91,13 +91,14 @@ export default class serCam {
             }
             
         } else {
-            console.log("Data is in bad format or ERROR:", code);
+            
             if (code==="ERROR" || code===null){
                 data.code=null
                 reason = "QR_NOT_FOUND"
             }else{
                 reason = "PATTERN_MISMATCH"
             }
+            console.log(`[Ser Cam] Data is in bad format or ERROR: ${reason} on scanned code: ${code}`);
             
         }
 
@@ -109,9 +110,7 @@ export default class serCam {
         const check = this.checkFormat(data)
         this.queue.enqueue(check.result)
         await new Promise(resolve => setTimeout(resolve, 300)); 
-        console.log(data)
-        console.log(`work o id ${printingProcess.work_order_id}`)
-        await sendDataToAPI(`v1/work-order/${printingProcess.work_order_id}/serialization/validate`,{ // TODO: what if its not reaching the API
+        await sendDataToAPI(`v1/work-order/${printingProcess.work_order_id}/serialization/validate`,{ 
             accuracy:data.accuracy,
             status:check.result?"pass":"rejected",
             code:data.code,

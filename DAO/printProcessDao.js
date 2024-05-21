@@ -16,9 +16,9 @@ function formatDate(date) {
 
     return `${day} ${month} ${year}`;
 }
-function removeSpacesAndNewlines(inputString) {
-    return inputString.replace(/\s+/g, '');
-}
+// function removeSpacesAndNewlines(inputString) { //Incase needed
+//     return inputString.replace(/\s+/g, '');
+// }
 function formatCurrencyIDR(amount, locale = 'id-ID') {
     return new Intl.NumberFormat(locale, {
         style: 'currency',
@@ -27,14 +27,13 @@ function formatCurrencyIDR(amount, locale = 'id-ID') {
 }
 import Queue from '../utils/queue.js';
 import printerTemplate from '../utils/printerTemplates.js';
-import { connect, close } from './db.js';
-import {sendDataToAPI1} from '../API/APICall/apiCall.js';
+import {putDataToAPI, sendDataToAPI1} from '../API/APICall/apiCall.js';
 
 export default class printProcess {
-    constructor(printer) {
+    constructor(printer, db) {
         this.printer = printer;
         this.fileNames = [];
-        this.db=null
+        this.db=db
         this.work_order_id=5
         this.assignment_id=5
         this.printPCtarget=0
@@ -42,7 +41,7 @@ export default class printProcess {
         this.details=null
         this.fileNamesIdx=0
         this.sampling = false
-        this.templateId=1 //default
+        this.templateName="template2" //default
         this.waitPrint=false
         this.full_code_queue = new Queue()
 
@@ -115,60 +114,11 @@ export default class printProcess {
             console.log(result)
             return result._id;
         } else {
-            console.log("No document found matching the criteria");
+            console.log(`[Printer Process] No (or no more) document found matching the criteria of the working order id :${this.work_order_id} and assignment id :${this.assignment_id} `);
             return null;
         }
     }
-    async checkNGetCode(db, lastId) {
-        const result = await db.collection('serialization').aggregate( 
-            [
-                {
-                  '$sort': {
-                    '_id': 1
-                  }
-                }, {
-                  '$match': {
-                    "_id": {
-                        "$gt": lastId
-                    },
-                    'status': this.sampling?"SAMPLING":'PRINTING', 
-                    'work_order_id': this.work_order_id, 
-                    'assignment_id': this.assignment_id
-                  }
-                }, {
-                  '$limit': 1
-                }
-              ]).toArray();
-            if (result.length==1){
-                return {id:result[0]._id,full_code:result[0].full_code,SN:result[0].code}
-            }else {
-                return false //no code found
-            }
-    }
-    async checkNGetCode2(db) {
-        const result = await db.collection('serialization').aggregate( 
-            [
-                {
-                  '$sort': {
-                    '_id': 1
-                  }
-                }, {
-                  '$match': {
-                    'status': this.sampling?"SAMPLE_SENT_TO_PRINTER":'SENT_TO_PRINTER', 
-                    'work_order_id': this.work_order_id, 
-                    'assignment_id': this.assignment_id
-                  }
-                }, {
-                  '$limit': 1
-                }
-              ]).toArray();
-            if (result.length==1){
-                console.log(result[0]._id)
-                return {id:result[0]._id,full_code:result[0].full_code,SN:result[0].code}
-            }else {
-                return false //no code found
-            }
-    }
+ 
    
      convertToHex(str) {
         // Get the length of the string in hexadecimal
@@ -182,29 +132,25 @@ export default class printProcess {
     }
     async printSetupChecks() {
         try {
-            this.db = await connect() // TODO: use mongoDB.js
             this.details = null
             this.details = await this.getCodeDetails(this.db)
             if (this.details===null){
-                console.log("no details")
                 throw new Error(`no details with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id} found`)
             }
 
             let serialization = await this.getDataBySmallestId(this.db)
             if(serialization == false) {
-                throw new Error(`can't get any data`);
+                throw new Error(`No printing data can be found in serialization table with with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id}`);
             }
             let P_status ="no errors"
 
             await this.printer.clearBuffers() // clear buffer before start printing
-            const msg =printerTemplate[1](this.details,"QR003") // sending 
+            const msg =printerTemplate[this.templateName](this.details,"QR003") // sending //TODO template id should be a name 
             await this.printer.send(msg) 
             await this.printer.startPrint()// start print
+            console.log("[Printing Process] filling up the first 10 buffers...")
             while (serialization != null && (P_status === "no errors" || P_status=== "still full")){ // filling up the buffer first
-                // await new Promise(resolve => setTimeout(resolve, 5000));
-                console.log(`serialization - ${serialization.id}`)
-                P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) // goes to buffer
-                console.log(`p status : ${P_status}`)
+                P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) // goes to printer buffer
                 await this.db.collection('serialization')
         
                 .updateOne( { _id: serialization.id}, 
@@ -226,7 +172,7 @@ export default class printProcess {
     }
 
     async print(){
-        let delayTime=5000;
+        let delayTime=5000; // initial delay time
         let fistPrintedFlag=false; //flag for telling that a first object has been printed
         let filledBufNum=0;
         let P_status="no errors"
@@ -242,7 +188,7 @@ export default class printProcess {
                     )
                     this.full_code_queue.enqueue(serialization.full_code)
                     const printed = this.full_code_queue.dequeue();
-                    await sendDataToAPI1(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
+                    await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
                         full_code:printed,
                     }) 
                     filledBufNum++;
@@ -256,7 +202,7 @@ export default class printProcess {
                 if (filledBufNum>0){delayTime = (delayTime-(filledBufNum-1)*100) }// targeting 9 items on buffer, if less than 9 substract by x*100 ms
                 filledBufNum=0;
                 if (delayTime!=delTtemp){
-                    console.log(`delay time has reduced to ${delayTime}`);
+                    console.log(`[Printing Process] delay time has reduced to ${delayTime}`);
                 }
             }
             

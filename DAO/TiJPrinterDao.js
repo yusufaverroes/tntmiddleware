@@ -28,6 +28,7 @@ export default class TIJPrinter {
         this.responseBuffer = null;
         this.isOccupied = false;
         this.printCallback=null
+        
 
         this.ESC = '1B';
         this.STX = '02';
@@ -87,7 +88,7 @@ export default class TIJPrinter {
     send(hexData, commandName="") {
         return new Promise((resolve, reject) => {
             if (!this.running) {
-                reject("Not connected to a printer"); // Reject with error message directly
+                reject("[Printer] Not connected to a printer"); // Reject with error message directly
                 return;
             }
     
@@ -109,7 +110,7 @@ export default class TIJPrinter {
                 clearTimeout(timeout);
                 // console.log("Response received:", this.responseBuffer); // Add this line for debugging
                 resolve(this.responseBuffer);
-               // reshandler(this.responseBuffer);
+
             });
         });
     }
@@ -119,7 +120,7 @@ export default class TIJPrinter {
     disconnect() {
         this.running = false;
         this.socket.destroy();
-        console.log("Disconnected");
+        console.log("[Printer] Printer is Disconnected");
     }
 
     isSolicitedResponse(response) {
@@ -429,7 +430,7 @@ export default class TIJPrinter {
                     throw new Error("got NACK");
                 }
             } catch (err) {
-                throw new Error(`[Printer] Request Ink Remains (26) error: ${err.message}`);
+                throw new Error(`[Printer] Request Ink Remains (26) error: ${err}`);
             }
         }
         
