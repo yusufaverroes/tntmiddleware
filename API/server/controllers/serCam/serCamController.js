@@ -1,10 +1,8 @@
 import { serialCamera } from "../../../../index";
-
+// TODO: delete and tell BE to use master-config instead
 const setAccuracyThreshold = (req, res) =>{
     try{
-        if (req.params.workstationId!=serialCamera.workstationId){
-            return res.status(404).send({message: "The work station id not found/recognized"})
-        }
+
         if (!serialCamera.running){
             return res.status(500).send({message: "Serialization camera not detected"})
         }

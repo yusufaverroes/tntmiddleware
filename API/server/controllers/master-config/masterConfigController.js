@@ -1,5 +1,6 @@
 import { printingProcess, printer, serialCamera, rejector } from "../../../../index.js";
 import printerTemplate from "../../../../utils/printerTemplates.js";
+// TODO: store in disk/not volatile memory
 
 // Function to set accuracy threshold for serial camera
 const setAccuracyThreshold = (req, res) => {
@@ -113,4 +114,4 @@ const getAllConfigParameters = (req, res) => {
 };
 
 
-export default { setAccuracyThreshold, setRejectorDelay, setPrinterTemplateName, getConfigParameterByKey, getAllConfigParameters};
+export default { changeParameter, getConfigParameterByKey, getAllConfigParameters};

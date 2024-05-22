@@ -16,7 +16,7 @@ export default class Rejection {
             return}; // Don't start if already running
         this.running = true; // Set running flag to true
         
-        try {
+        try { // TODO: confirm the sleeps purposes with rizal
             this.flag = false;
             while (!this.flag) {
                 await sleep(50)

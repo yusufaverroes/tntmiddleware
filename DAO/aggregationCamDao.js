@@ -36,15 +36,16 @@ class AggregationCam {
       }) 
       }
     };
-  
+    // TODO: test the outcome for which accuracy is eliminated on duplicated code between messages
     mergeResponses(messages) {
-      console.log(messages)
+      // console.log(messages) uncommment for debugging only
      
 
       let combinedData = {};
-  
+      
       messages.forEach((message) => {
-        const pairs = message.split(';');
+        const messageStr = message.toString(); // Convert Buffer to string
+        const pairs = messageStr.split(';');
         pairs.forEach((pair) => {
           if (pair) {
             const [code, accuracy] = pair.split(':');

@@ -145,7 +145,7 @@ export default class printProcess {
             let P_status ="no errors"
 
             await this.printer.clearBuffers() // clear buffer before start printing
-            const msg =printerTemplate[this.templateName](this.details,"QR003") // sending //TODO template id should be a name 
+            const msg =printerTemplate[this.templateName](this.details,"QR003") 
             await this.printer.send(msg) 
             await this.printer.startPrint()// start print
             console.log("[Printing Process] filling up the first 10 buffers...")
@@ -171,7 +171,7 @@ export default class printProcess {
         }
     }
 
-    async print(){
+    async print(){ // TODO: stoping logic after completing job
         let delayTime=5000; // initial delay time
         let fistPrintedFlag=false; //flag for telling that a first object has been printed
         let filledBufNum=0;
@@ -180,7 +180,7 @@ export default class printProcess {
             
             while(true){
                 let serialization = await this.getDataBySmallestId(this.db);
-                P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) //Todo error handling
+                P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) 
                 if (P_status === "no errors" || P_status ==="now full") {
                     await this.db.collection('serialization')
                      .updateOne( { _id: serialization.id}, 
@@ -201,7 +201,7 @@ export default class printProcess {
                 const delTtemp = delayTime;
                 if (filledBufNum>0){delayTime = (delayTime-(filledBufNum-1)*100) }// targeting 9 items on buffer, if less than 9 substract by x*100 ms
                 filledBufNum=0;
-                if (delayTime!=delTtemp){
+                if (delayTime<delTtemp){
                     console.log(`[Printing Process] delay time has reduced to ${delayTime}`);
                 }
             }

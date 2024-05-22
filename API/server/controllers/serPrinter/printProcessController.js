@@ -31,8 +31,8 @@ const startPrinting = async (req, res) => {
         return res.status(400).send({message: `Missing mandatory payload in request body. (${missingBody})`})
     }
 
-    if((req.body.templateId) && req.body.templateId >printerTemplate.length){
-        return res.status(404).send({message: `The templateId=${req.body.templateId} does not exist`})
+    if((req.body.templateName) && req.body.templateName  in printerTemplate){
+        return res.status(404).send({message: `The template Name=${req.body.templateName} does not exist`})
     }
     if (printer.isOccupied===true){
         return res.status(409).send({message: `This printer is occupied for workOrderId=${printingProcess.work_order_id} and assignmentId =${printingProcess.assignment_id}`})
@@ -44,7 +44,7 @@ const startPrinting = async (req, res) => {
     try {
         if (await printingProcess.printSetupChecks()==="success"){
             res.status(200).send({message:`Printing Process with assignment Id = ${printingProcess.assignment_id}, work order Id =${printingProcess.work_order_id}, and template Id = ${printingProcess.templateId} started`})
-            printingProcess.print().then(() =>{console.log("printer is running")})
+            printingProcess.print().then(() =>{console.log("now printer is running")})
         }else{
             return res.status(500).send({message:"unknown issue, printer is not started"})
         }
@@ -57,4 +57,4 @@ const startPrinting = async (req, res) => {
 
 
 
-export default {startPrinting, printerDetails, stopPrinting}
+export default {startPrinting, stopPrinting}

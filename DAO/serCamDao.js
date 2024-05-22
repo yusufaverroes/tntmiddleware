@@ -14,10 +14,10 @@ export default class serCam {
         this.running = false;
         this.socket = null;
         this.listenerThread = null;
-        this.window = [];
-        this.errorCount = 0;
-        this.repeatErrorCount = 0;
-        this.accuracyThreshold =0.0
+        // this.window = [];
+        // this.errorCount = 0;
+        // this.repeatErrorCount = 0; // incase needed
+        this.accuracyThreshold =0.0 // need discussion
         this.queue=queue
     }
     connect() {
@@ -72,7 +72,7 @@ export default class serCam {
         });
     }
 
-    checkFormat(data) { //TODO : change reject status into more detail reasons
+    checkFormat(data) { //TODO : change reject status into more detail reasons // pattern should be parameterized
         const identifikasi_pattern = /^\(90\)[A-Za-z0-9]{1,16}\(91\)\d{1,10}$/;
         const otentifikasi_pattern1 = /^\(90\)[A-Za-z0-9]{1,16}\(10\)[A-Za-z0-9]{1,20}\(17\)\d{1,6}\(21\)[A-Za-z0-9]{1,20}$/;
         const otentifikasi_pattern2 = /^\(01\)[A-Za-z0-9]{14}\(10\)[A-Za-z0-9]{1,20}\(17\)\d{1,6}\(21\)[A-Za-z0-9]{1,20}$/;
@@ -109,7 +109,7 @@ export default class serCam {
         
         const check = this.checkFormat(data)
         this.queue.enqueue(check.result)
-        await new Promise(resolve => setTimeout(resolve, 300)); 
+        await new Promise(resolve => setTimeout(resolve, 300)); // TODO to check if necessary by testing
         await sendDataToAPI(`v1/work-order/${printingProcess.work_order_id}/serialization/validate`,{ 
             accuracy:data.accuracy,
             status:check.result?"pass":"rejected",

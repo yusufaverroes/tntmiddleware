@@ -1,10 +1,11 @@
 
-import qrCsvRoutes from "./routes/qrCsvRoutes.js";
-//import testRoute from "./routes/testRoute.js"
+//TODO update the masterRoute
+
+
 import printRoute from "./routes/serPrinterRoutes.js"
 
 export default function initializeRoutes(app) {
-    qrCsvRoutes(app);
+
     //testRoute(app);
     printRoute(app);
 

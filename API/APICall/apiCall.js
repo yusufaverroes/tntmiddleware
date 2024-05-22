@@ -1,11 +1,11 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
 dotenv.config();
-
+ //TODO : apply the api link from dot env
 
   export async function postDataToAPI(route, data) {
   try {
-    const response = await axios.post('http://api-station.seratonic-rnd.local/'+route, data, 
+    const response = await axios.post('http://api-station.seratonic-rnd.local/'+route, data, // Cannot read from env
     {
       headers: {
       'X-AUTH-BASIC': 'Basic c2VyYXRvbmljOjUzcjR0MG4xYw=='
