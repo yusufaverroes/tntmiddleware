@@ -35,7 +35,7 @@ const printer = new TIJPrinter(process.env.TiJPrinter_IP, process.env.TiJPrinter
 printer.connect()
 await new Promise(resolve => setTimeout(resolve, 500));
 const printingProcess = new printProcess(printer)
-const wsAggregation = new WebSocketClient()
+const wsAggregation = new WebSocketClient(process.env.WS_IP,process.env.WS_PORT,"client2")
 await wsAggregation.connect()
 console.log(`[Websocket] status: ${wsAggregation.status}`)
 const aggCam = new AggregationCam(wsAggregation)

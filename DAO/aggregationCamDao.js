@@ -1,4 +1,4 @@
-import { sendDataToAPI } from "../API/APICall/apiCall";
+import { sendDataToAPI } from "../API/APICall/apiCall.js";
 class AggregationCam {
     constructor(webSocketClient) {
       this.webSocketClient = webSocketClient;
@@ -42,13 +42,15 @@ class AggregationCam {
     };
   
     mergeResponses(messages) {
-      console.log(messages)
+      
      
 
       let combinedData = {};
   
       messages.forEach((message) => {
-        const pairs = message.split(';');
+        const messageStr = message.toString(); // Convert Buffer to string
+
+        const pairs = messageStr.split(';');
         pairs.forEach((pair) => {
           if (pair) {
             const [code, accuracy] = pair.split(':');
