@@ -3,7 +3,7 @@ import printProcessController from '../controllers/serPrinter/printProcessContro
 /**
  * @param {e.Application} app
  */
-export default function printRoute(app) {
+export default function printRoutes(app) {
     app.route("/v1/printer/start")
         .post(printProcessController.startPrinting)
     app.route("/v1/printer/stop")

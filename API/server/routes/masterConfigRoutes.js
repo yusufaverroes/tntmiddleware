@@ -3,7 +3,7 @@ import masterConfigController from '../controllers/master-config/masterConfigCon
 /**
  * @param {e.Application} app
  */
-export default function qrCsvRoutes(app) {
+export default function masterConfigRoutes(app) {
     app.route("/v1/master-config")
         .get(masterConfigController.getAllConfigParameters)
         .put(masterConfigController.changeParameter)

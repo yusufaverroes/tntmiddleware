@@ -6,7 +6,8 @@ export default class Rejection {
         this.responseQueue = responseQueue;
         this.flag = false;
         this.running = false; // Flag to track if the process is running
-        this.delay=85 //ms
+        this.delay1 =masterConfig.getConfig('rejector').REJECTOR_DELAY1;// in ms - delay for : holding the time until the object is on the right position to start the rejection
+        this.delay2=masterConfig.getConfig('rejector').REJECTOR_DELAY2; // in ms - delay for : how long the valve opens
     }
 
     async start() {
@@ -16,38 +17,36 @@ export default class Rejection {
             return}; // Don't start if already running
         this.running = true; // Set running flag to true
         
-        try { // TODO: confirm the sleeps purposes with rizal
+        try { 
             this.flag = false;
             while (!this.flag) {
-                await sleep(50)
+                 await sleep(50); //sleep for: preventing high cost on cpu power
                 let sensorValue = this.sensor.getValue();
                 if (sensorValue === 1) {
                     console.log("[Rejector] an object is detected")
                     if (!this.responseQueue.isEmpty()) {
                         const getresponse = this.responseQueue.dequeue();
                         if (getresponse) {
-                            while (sensorValue === 1) {
-                                await sleep(1);
+                            while (sensorValue === 1) { // this while loop is to make sure the object is already gone, before proceeding the next object
+                                await sleep(1); // sleep for: preventing high cost on cpu power while it is looping on reading the sensor
                                 sensorValue = this.sensor.getValue();
                             }
-                            await sleep(50);
                             console.log("[Rejector] an object is passed");
+                           
                         } else {
-                            await sleep(20);
-                            this.switch1.setValue(0);
-                            await sleep(this.delay);
+                            await sleep(this.delay1); 
+                            this.switch1.setValue(0); // Rejection happens here
+                            await sleep(this.delay2); 
                             let switchOpened = true;
-                            while (switchOpened) {
+                            while (switchOpened) { 
                                 this.switch1.setValue(1);
-                                while (sensorValue === 1) {
-                                    await sleep(1);
+                                while (sensorValue === 1) { // this while loop is to make sure the object is already gone, before proceeding the next object
+                                    await sleep(1); // sleep for: preventing high cost on cpu power while it is looping on reading the sensor (on rejection)
                                     sensorValue = this.sensor.getValue();
                                 }
                                 switchOpened = false;
                             }
                             console.log("[Rejector] an object is rejected");
-
-                            await sleep(50);
                         }
                     }
                 }

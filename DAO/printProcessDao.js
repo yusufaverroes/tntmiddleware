@@ -27,7 +27,7 @@ function formatCurrencyIDR(amount, locale = 'id-ID') {
 }
 import Queue from '../utils/queue.js';
 import printerTemplate from '../utils/printerTemplates.js';
-import {putDataToAPI, sendDataToAPI1} from '../API/APICall/apiCall.js';
+import {putDataToAPI} from '../API/APICall/apiCall.js';
 
 export default class printProcess {
     constructor(printer, db) {
@@ -41,7 +41,7 @@ export default class printProcess {
         this.details=null
         this.fileNamesIdx=0
         this.sampling = false
-        this.templateName="template2" //default
+        this.templateName=masterConfig.getConfig('printerProcess').TEMPLATE_NAME;
         this.waitPrint=false
         this.full_code_queue = new Queue()
 
@@ -140,7 +140,7 @@ export default class printProcess {
 
             let serialization = await this.getDataBySmallestId(this.db)
             if(serialization == false) {
-                throw new Error(`No printing data can be found in serialization table with with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id}`);
+                throw new Error(`No printing data can be found in serialization table  with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id}`);
             }
             let P_status ="no errors"
 
@@ -176,10 +176,15 @@ export default class printProcess {
         let fistPrintedFlag=false; //flag for telling that a first object has been printed
         let filledBufNum=0;
         let P_status="no errors"
+        let waitingForCompletion=false;
         while (this.printer.isOccupied){
             
-            while(true){
+            while(true){ // filling up the buffer
                 let serialization = await this.getDataBySmallestId(this.db);
+                if (!serialization){ // no more data on database
+                    waitingForCompletion=true;
+                    break;
+                }
                 P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) 
                 if (P_status === "no errors" || P_status ==="now full") {
                     await this.db.collection('serialization')
@@ -205,6 +210,25 @@ export default class printProcess {
                     console.log(`[Printing Process] delay time has reduced to ${delayTime}`);
                 }
             }
+            if (waitingForCompletion){
+                let bufferCount = await this.printer.getBufNum()
+                while(!this.responseQueue.isEmpty()){
+                    while(this.responseQueue.size()>bufferCount){
+                        const printed = this.full_code_queue.dequeue();
+                        await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
+                            full_code:printed,
+                        })
+                        
+                    }
+                    bufferCount = await this.printer.getBufNum()
+                    await new Promise(resolve => setTimeout(resolve, delayTime))
+                }
+                
+                await this.printer.stop()
+                this.printer.isOccupied=false
+                console.log(`[Printing Process] printing process with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id} is completed! $`)
+            }
+            
             
             
             await new Promise(resolve => setTimeout(resolve, delayTime)) // The delay

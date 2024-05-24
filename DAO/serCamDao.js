@@ -1,6 +1,7 @@
 import net from 'net';
-import {sendDataToAPI} from '../API/APICall/apiCall.js'
+import {postDataToAPI} from '../API/APICall/apiCall.js'
 import { printingProcess } from '../index.js';
+import { masterConfig } from '../index.js';
 
 function removeSpacesAndNewlines(inputString) {
     return inputString.replace(/\s+/g, '');
@@ -14,11 +15,9 @@ export default class serCam {
         this.running = false;
         this.socket = null;
         this.listenerThread = null;
-        // this.window = [];
-        // this.errorCount = 0;
-        // this.repeatErrorCount = 0; // incase needed
         this.accuracyThreshold =0.0 // need discussion
         this.queue=queue
+        this.patterns = masterConfig.rejector.REGEX_PATTERNS.map(patternStr => new RegExp(patternStr));
     }
     connect() {
         this.socket = new net.Socket();
@@ -72,37 +71,33 @@ export default class serCam {
         });
     }
 
-    checkFormat(data) { //TODO : change reject status into more detail reasons // pattern should be parameterized
-        const identifikasi_pattern = /^\(90\)[A-Za-z0-9]{1,16}\(91\)\d{1,10}$/;
-        const otentifikasi_pattern1 = /^\(90\)[A-Za-z0-9]{1,16}\(10\)[A-Za-z0-9]{1,20}\(17\)\d{1,6}\(21\)[A-Za-z0-9]{1,20}$/;
-        const otentifikasi_pattern2 = /^\(01\)[A-Za-z0-9]{14}\(10\)[A-Za-z0-9]{1,20}\(17\)\d{1,6}\(21\)[A-Za-z0-9]{1,20}$/;
+    checkFormat(data) { //TODO : pattern should be parameterized (Done)
         let result=false
         let reason=null
         let code = data.code
-        if (identifikasi_pattern.test(code) || otentifikasi_pattern1.test(code) || otentifikasi_pattern2.test(code)) {
-            console.log("[Ser Cam] Data is in a correct format:", code);
-            console.log(data.accuracy)
-            if (this.accuracyThreshold<=data.accuracy){
-                result = true
-                
-            }else{
-                result = false
-                reason = "LOW_ACCURACY"
+        for (const pattern of this.patterns) {
+            if (pattern.test(code)) {
+                console.log("[Ser Cam] Data is in a correct format:", code);
+                console.log(data.accuracy);
+                if (this.accuracyThreshold <= data.accuracy) {
+                    result = true;
+                } else {
+                    result = false;
+                    reason = "LOW_ACCURACY";
+                }
+                return { result, reason, code };
             }
-            
-        } else {
-            
-            if (code==="ERROR" || code===null){
-                data.code=null
-                reason = "QR_NOT_FOUND"
-            }else{
-                reason = "PATTERN_MISMATCH"
-            }
-            console.log(`[Ser Cam] Data is in bad format or ERROR: ${reason} on scanned code: ${code}`);
-            
         }
-
-        return {result,reason,code}
+    
+        if (code === "ERROR" || code === null) {
+            data.code = null;
+            reason = "QR_NOT_FOUND";
+        } else {
+            reason = "PATTERN_MISMATCH";
+        }
+        console.log(`[Ser Cam] Data is in bad format or ERROR: ${reason} on scanned code: ${code}`);
+    
+        return { result, reason, code };
     }
 
     async receiveData(data) {
@@ -110,7 +105,7 @@ export default class serCam {
         const check = this.checkFormat(data)
         this.queue.enqueue(check.result)
         await new Promise(resolve => setTimeout(resolve, 300)); // TODO to check if necessary by testing
-        await sendDataToAPI(`v1/work-order/${printingProcess.work_order_id}/serialization/validate`,{ 
+        await postDataToAPI(`v1/work-order/${printingProcess.work_order_id}/serialization/validate`,{ 
             accuracy:data.accuracy,
             status:check.result?"pass":"rejected",
             code:data.code,

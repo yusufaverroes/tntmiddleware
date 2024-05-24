@@ -1,4 +1,4 @@
-import { sendDataToAPI } from "../API/APICall/apiCall";
+import { postDataToAPI } from "../API/APICall/apiCall.js";
 class AggregationCam {
     constructor(webSocketClient) {
       this.webSocketClient = webSocketClient;
@@ -30,7 +30,7 @@ class AggregationCam {
           return value.code
         })
         
-        await sendDataToAPI(`v1/work-order/active-job/aggregation`,{ 
+        await postDataToAPI(`v1/work-order/active-job/aggregation`,{ 
           serialization_codes:codes
           
       }) 

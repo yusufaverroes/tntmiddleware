@@ -1,12 +1,13 @@
 
-//TODO update the masterRoute
+//TODO update the masterRoute (Done)
 
 
-import printRoute from "./routes/serPrinterRoutes.js"
+import printRoutes from "./routes/serPrinterRoutes.js"
+import masterConfigRoutes from "./routes/masterConfigRoutes.js";
 
 export default function initializeRoutes(app) {
 
-    //testRoute(app);
-    printRoute(app);
+    masterConfigRoutes(app);
+    printRoutes(app);
 
 }

@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 dotenv.config();
-
+import lowDB from './DAO/masterConfigDao.js';
 import startHTTPServer  from './API/server/server.js';
 import printProcess from './DAO/printProcessDao.js';
 import TIJPrinter from './DAO/TiJPrinterDao.js';
@@ -10,11 +10,31 @@ import pkg from 'node-libgpiod';
 import Rejector from './DAO/rejectorDao.js'
 import MongoDB from './DAO/mongoDB.js';
 import WebSocketClient from './DAO/webSocketClient.js'
-import AggregationCam from './DAO/aggregationCamDao.js';
+import AggregationCam from './DAO/aggregationCamDao.js'; 
+
 process.on('unhandledRejection', (err) => {
     console.error('Unhandled Promise Rejection:', err);
     // Handle the error gracefully or log it
 });
+
+// const masterConfig = new lowDB('../utils/master-config.json')
+// await masterConfig.init()
+// console.log(`masterConfigs: ${masterConfig.getAllConfig()}`)
+
+const masterConfig = new lowDB('../utils/master-config.json');
+
+(async () => {
+  try {
+    // Wait for initialization to complete
+    await masterConfig.init();
+
+    // Get all configuration values and convert to a JSON string
+    const allConfig = masterConfig.getAllConfig();
+    console.log(`masterConfigs: ${JSON.stringify(allConfig, null, 2)}`);
+  } catch (error) {
+    console.error('Error in index.js:', error);
+  }
+})();
 const mongoDB = new MongoDB(process.env.MONGODB_URI, process.env.DATABASE_NAME) // settiing up mongodb connection
 mongoDB.connect()
 
@@ -37,13 +57,13 @@ await new Promise(resolve => setTimeout(resolve, 500));
 
 const printingProcess = new printProcess(printer, mongoDB.db) // instancing printing process class with printer and mongoDB instances as the constructor
 
-const wsAggregation = new WebSocketClient() // instancing websocket client class for aggregation
-await wsAggregation.connect()
+const wsAggregation = new WebSocketClient(process.env.WS_IP, process.env.WS_PORT,"client2") // instancing websocket client class for aggregation
+try{await wsAggregation.connect()}catch(err){console.log(err)}
 console.log(`[Websocket] status: ${wsAggregation.status}`) 
 
 const aggCam = new AggregationCam(wsAggregation)// instancing aggregation cam class using wsAggregation instance
 
-export  {printingProcess,printer, serialCamera, serQueue, rejector}  
+export  {printingProcess,printer, serialCamera, serQueue, rejector, masterConfig}  
 startHTTPServer(process.env.SERVER_PORT)
 
 

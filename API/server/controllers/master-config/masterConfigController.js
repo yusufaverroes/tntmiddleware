@@ -1,15 +1,17 @@
-import { printingProcess, printer, serialCamera, rejector } from "../../../../index.js";
+import { printingProcess, printer, serialCamera, rejector, masterConfig} from "../../../../index.js";
 import printerTemplate from "../../../../utils/printerTemplates.js";
-// TODO: store in disk/not volatile memory
+
+// TODO: store in disk/not volatile memory (Done)
 
 // Function to set accuracy threshold for serial camera
-const setAccuracyThreshold = (req, res) => {
+const setAccuracyThreshold = async (req, res) => {
     try {
         const parameter_value = req.body.parameter_value;
         if (!serialCamera.running) {
             return res.status(500).send({ message: "Serial camera not detected" });
         }
         serialCamera.accuracyThreshold = parameter_value;
+        await masterConfig.setConfig('serCam', { ACCURACY_THRESHOLD: parameter_value})
         res.status(200).send({ message: `Accuracy threshold is changed to ${parameter_value} successfully` });
     } catch (err) {
         console.error(err);
@@ -18,11 +20,19 @@ const setAccuracyThreshold = (req, res) => {
 };
 
 // Function to set rejector delay
-const setRejectorDelay = (req, res) => {
+const setRejectorDelay = async (req, res) => {
     try {
         const parameter_value = req.body.parameter_value;
-        rejector.delay = parameter_value;
-        res.status(200).send({ message: `Rejector delay is changed to ${parameter_value} successfully` });
+        const param_name=req.body.param_name
+        
+        if (param_name==="REJECTOR_DELAY1"){
+            rejector.delay1 = parameter_value;
+            await masterConfig.setConfig('rejector', { REJECTOR_DELAY1: parameter_value})
+        }else{
+            rejector.delay2 = parameter_value;
+            await masterConfig.setConfig('rejector', { REJECTOR_DELAY2: parameter_value})
+        }
+        res.status(200).send({ message: `${param_name} is changed to ${parameter_value} successfully` });
     } catch (err) {
         console.error(err);
         res.status(500).send({ status: "FAILED", message: "Internal Server Error" });
@@ -30,7 +40,7 @@ const setRejectorDelay = (req, res) => {
 };
 
 // Function to set printer template name
-const setPrinterTemplateName = (req, res) => {
+const setPrinterTemplateName = async (req, res) => {
     try {
         const parameter_value = req.body.parameter_value;
 
@@ -39,6 +49,7 @@ const setPrinterTemplateName = (req, res) => {
         }
         if (parameter_value in printerTemplate) {
             printingProcess.templateName = parameter_value;
+            await masterConfig.setConfig('printerProcess', { TEMPLATE_NAME: parameter_value});
             res.status(200).send({ message: `Template name is changed to ${parameter_value} successfully` });
         } else {
             return res.status(400).send({ status: "FAILED", message: `TEMPLATE_NAME = ${parameter_value} not found` });
@@ -53,7 +64,7 @@ const changeParameter = (req, res) =>{
     const param_name = req.body.param_name
     if(param_name==="ACCURACY_THRESHOLD"){
         setAccuracyThreshold(req,res)
-    }else if(param_name==="REJECTOR_DELAY"){
+    }else if(param_name==="REJECTOR_DELAY1" ||param_name==="REJECTOR_DELAY2" ){
         setRejectorDelay(req,res)
     }else if(param_name==="TEMPLATE_NAME"){
         setPrinterTemplateName(req,res)

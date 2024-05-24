@@ -11,26 +11,30 @@ class WebSocketClient {
 
   connect() {
     return new Promise((resolve, reject) => {
-      const url = `ws://${this.ip}:${this.port}`;
-      const headers = {
-        'Client-ID': this.clientId
-      };
-
-      this.ws = new WebSocket(url, { headers });
-
-      this.ws.on('open', () => {
-        this.status = 'connected';
-        resolve();
-      });
-
-      this.ws.on('error', (error) => {
-        this.status = 'disconnected';
-        reject(error);
-      });
-
-      this.ws.on('close', () => {
-        this.status = 'disconnected';
-      });
+      try {
+        const url = `ws://${this.ip}:${this.port}`;
+        const headers = {
+          'Client-ID': this.clientId
+        };
+  
+        this.ws = new WebSocket(url, { headers });
+  
+        this.ws.on('open', () => {
+          this.status = 'connected';
+          resolve();
+        });
+  
+        this.ws.on('error', (error) => {
+          this.status = 'disconnected';
+          reject(error);
+        });
+  
+        this.ws.on('close', () => {
+          this.status = 'disconnected';
+        }); 
+      } catch (error) {
+        reject(error)
+      }
     });
   }
 

@@ -15,6 +15,8 @@
     "express": "^4.18.2",
     "fs": "^0.0.1-security",
     "jsonschema": "^1.4.1",
+    "lowdb": "^7.0.1",
+    "lowdb-node": "^3.0.2",
     "mongodb": "^6.5.0",
     "mosca": "^0.6.0",
     "mqtt": "^5.3.6",
