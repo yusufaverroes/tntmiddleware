@@ -29,14 +29,14 @@ const masterConfig = new lowDB('../utils/master-config.json');
     await masterConfig.init();
 
     // Get all configuration values and convert to a JSON string
-    const allConfig = masterConfig.getAllConfig();
-    console.log(`masterConfigs: ${JSON.stringify(allConfig, null, 2)}`);
+    //const allConfig = masterConfig.getAllConfig();
+    console.log(`regex: ${JSON.stringify(masterConfig.getConfig('rejector').REGEX_PATTERNS, null, 2)}`);
   } catch (error) {
     console.error('Error in index.js:', error);
   }
 })();
 const mongoDB = new MongoDB(process.env.MONGODB_URI, process.env.DATABASE_NAME) // settiing up mongodb connection
-mongoDB.connect()
+await mongoDB.connect()
 
 const { version, Chip, Line } = pkg; //setting up GPIOs
 global.chip = new Chip(4)
@@ -50,13 +50,14 @@ rejector.start()
 
 const serialCamera =  new serCam(process.env.SERIALIZATION_CAM_IP,process.env.SERIALIZATION_CAM_PORT,"1",serQueue); //instancing serCam class for serialization Camera
 serialCamera.connect()
+// console.log(`regexnya : ${JSON.stringify(serialCamera.patterns)}`)
 
 const printer = new TIJPrinter(process.env.TiJPrinter_IP, process.env.TiJPrinter_PORT,process.env.TiJPrinter_SLAVE_ADDRESS,"1")//instancing printer class 
 printer.connect()
 await new Promise(resolve => setTimeout(resolve, 500));
 
 const printingProcess = new printProcess(printer, mongoDB.db) // instancing printing process class with printer and mongoDB instances as the constructor
-
+console.log(`test master : ${printingProcess.templateName}`)
 const wsAggregation = new WebSocketClient(process.env.WS_IP, process.env.WS_PORT,"client2") // instancing websocket client class for aggregation
 try{await wsAggregation.connect()}catch(err){console.log(err)}
 console.log(`[Websocket] status: ${wsAggregation.status}`) 

@@ -1,4 +1,4 @@
-
+import { masterConfig } from '../index.js';
 export default class Rejection {
     constructor(sensor, switch1, responseQueue) {
         this.sensor = sensor;

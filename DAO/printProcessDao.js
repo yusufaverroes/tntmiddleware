@@ -28,14 +28,15 @@ function formatCurrencyIDR(amount, locale = 'id-ID') {
 import Queue from '../utils/queue.js';
 import printerTemplate from '../utils/printerTemplates.js';
 import {putDataToAPI} from '../API/APICall/apiCall.js';
-
+import { masterConfig } from '../index.js';
 export default class printProcess {
     constructor(printer, db) {
         this.printer = printer;
         this.fileNames = [];
         this.db=db
-        this.work_order_id=5
-        this.assignment_id=5
+        // console.log(db)
+        this.work_order_id=null
+        this.assignment_id=null
         this.printPCtarget=0
         this.lowest_id=null
         this.details=null
@@ -48,13 +49,12 @@ export default class printProcess {
     }
     async getCodeDetails(db) {
         try {
-            console.log(this.work_order_id)
-            const work_order = await db.collection('work_order').findOne({ _id: this.work_order_id });
+            const work_order = await db.collection('work_order').findOne({ external_id: this.work_order_id });
             if (!work_order) {
                 throw new Error(`Work order ${this.work_order_id} not found`);
             }
     
-            const product = await db.collection('product').findOne({ _id: work_order.product_id });
+            const product = await db.collection('product').findOne({ external_id: work_order.product_id });
             if (!product) {
                 throw new Error(`Product ID ${this.product_id} not found `);
             }
@@ -150,6 +150,7 @@ export default class printProcess {
             await this.printer.startPrint()// start print
             console.log("[Printing Process] filling up the first 10 buffers...")
             while (serialization != null && (P_status === "no errors" || P_status=== "still full")){ // filling up the buffer first
+                
                 P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) // goes to printer buffer
                 await this.db.collection('serialization')
         
@@ -171,12 +172,13 @@ export default class printProcess {
         }
     }
 
-    async print(){ // TODO: stoping logic after completing job
+    async print(){ // TODO: stoping logic after completing job (Done)
         let delayTime=5000; // initial delay time
         let fistPrintedFlag=false; //flag for telling that a first object has been printed
         let filledBufNum=0;
         let P_status="no errors"
         let waitingForCompletion=false;
+        console.log("[Printer Process] waiting object to be printed")
         while (this.printer.isOccupied){
             
             while(true){ // filling up the buffer
@@ -212,15 +214,15 @@ export default class printProcess {
             }
             if (waitingForCompletion){
                 let bufferCount = await this.printer.getBufNum()
-                while(!this.responseQueue.isEmpty()){
-                    while(this.responseQueue.size()>bufferCount){
+                while(!this.responseQueue.isEmpty()){ // this while loop is useful if no printing happening while waiting for completion
+                    while(this.responseQueue.size()>bufferCount){ // keep dequeuing until it matches the number of buffer left
                         const printed = this.full_code_queue.dequeue();
                         await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
                             full_code:printed,
                         })
                         
                     }
-                    bufferCount = await this.printer.getBufNum()
+                    bufferCount = await this.printer.getBufNum() // update the bufferCount number
                     await new Promise(resolve => setTimeout(resolve, delayTime))
                 }
                 
@@ -228,8 +230,6 @@ export default class printProcess {
                 this.printer.isOccupied=false
                 console.log(`[Printing Process] printing process with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id} is completed! $`)
             }
-            
-            
             
             await new Promise(resolve => setTimeout(resolve, delayTime)) // The delay
 

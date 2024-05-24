@@ -1,8 +1,3 @@
-// get process IDs (TODO later)
-// start process with printer id + csv +
-// end process
-// get process details such as printing progress
-
 
 import  {printingProcess, printer} from '../../../../index.js';
 import printerTemplate from '../../../../utils/printerTemplates.js';
@@ -43,8 +38,10 @@ const startPrinting = async (req, res) => {
     }
     try {
         if (await printingProcess.printSetupChecks()==="success"){
+            printingProcess.print().then(() =>{})
+            console.log("success")
             res.status(200).send({message:`Printing Process with assignment Id = ${printingProcess.assignment_id}, work order Id =${printingProcess.work_order_id}, and template Id = ${printingProcess.templateId} started`})
-            printingProcess.print().then(() =>{console.log("now printer is running")})
+            
         }else{
             return res.status(500).send({message:"unknown issue, printer is not started"})
         }

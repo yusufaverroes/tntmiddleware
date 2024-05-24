@@ -11,7 +11,7 @@ export default class MongoDB {
             console.log("connecting to MongoDB...")
             await this.client.connect();
             console.log('Connected to the MongoDB');
-            this.client.db(this.databaseName)
+            this.db=this.client.db(this.databaseName)
         } catch (err) {
             console.error('[MongoDB] Error connecting to the MonggoDB, error:', err);
             throw err;

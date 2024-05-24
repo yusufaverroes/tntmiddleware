@@ -23,22 +23,23 @@ class AggregationCam {
     }
 
     async handleMessage(message) {
+      console.log(`[AggCam] incoming message: ${message}`)
       this.receivedMessages.push(message);
       if (this.receivedMessages.length === 3) {
         const result = this.mergeResponses(this.receivedMessages);
         const codes= result.scans.map((value) => {
           return value.code
         })
-        
+        console.log("hitting api")
         await postDataToAPI(`v1/work-order/active-job/aggregation`,{ 
           serialization_codes:codes
           
       }) 
       }
     };
-    // TODO: test the outcome for which accuracy is eliminated on duplicated code between messages
+    // TODO: test the outcome for which accuracy is eliminated on duplicated code between messages(Done)
     mergeResponses(messages) {
-      // console.log(messages) uncommment for debugging only
+      // console.log(messages)// uncommment for debugging only
      
 
       let combinedData = {};
@@ -57,7 +58,7 @@ class AggregationCam {
       this.receivedMessages = [];
   
       const result = {
-        scans: Object.entries(combinedData).map(([code, accuracy]) => ({ code, accuracy }))
+        scans: Object.entries(combinedData).map(([code, accuracy]) => ({ code, accuracy })) //TODO take the largest accuracy
       };
     
   

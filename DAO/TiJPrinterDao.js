@@ -93,12 +93,12 @@ export default class TIJPrinter {
             }
     
             const hexDataToSend = this.ESC + this.STX + this.slaveAddress + hexData + this.ESC + this.EXT;
-            console.log(hexDataToSend);
+           
     
             const hexBytes = Buffer.from(hexDataToSend, 'hex');
             const checksum = this.calculate2sComplementChecksum(hexBytes);
             const hexBytesWithChecksum = Buffer.concat([hexBytes, Buffer.from([checksum])]);
-            console.log(hexBytesWithChecksum);
+           
             this.socket.write(hexBytesWithChecksum);
     
             let timeout = setTimeout(() => {
@@ -349,7 +349,8 @@ export default class TIJPrinter {
             await this.send("21", "Clear Buffers of 1D(21)")
              .then(responseBuffer => {
                  if (responseBuffer[1] === 0x06){
-                     return "[Printer] Buffers cleared"
+                    console.log("[Printer] Buffers cleared")
+                     return true
                  }else{
                      throw new Error("got NACK")
                  }
