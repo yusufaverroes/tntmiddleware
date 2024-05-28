@@ -109,7 +109,9 @@ export default class TIJPrinter {
             this.responseEvent.once('responseReceived', () => {
                 clearTimeout(timeout);
                 // console.log("Response received:", this.responseBuffer); // Add this line for debugging
+
                 resolve(this.responseBuffer);
+
 
             });
         });
@@ -330,19 +332,22 @@ export default class TIJPrinter {
             }
 
 
-            async getBufNum(){
-               await this.send("33", "Request the number of buffers of Remote Field(33)")
-                .then(responseBuffer => {
-                    if (responseBuffer[1] === 0x06){
-                        const bufNum = Buffer.from(responseBuffer[4]).readUIntLE(0, 1)
-                        return bufNum
-                    }else{
-                        throw new Error("got NACK")
+            async getBufNum() {
+                try {
+                    const responseBuffer = await this.send("33", "Request the number of buffers of Remote Field(33)");
+                    // console.log(`Responseeee : ${responseBuffer.toString()}`);
+                    
+                    if (responseBuffer[1] === 6) {
+                        // const bufNum = Buffer.from(responseBuffer[4]).readUIntLE(0, 1);
+                        return responseBuffer[5];
+                    } else {
+                        throw new Error("got NACK");
                     }
-                }).catch((err)=>{
-                    throw new Error (`[Printer] Request the number of buffers of Remote Field(33) error : ${err}`); 
-                })
+                } catch (err) {
+                    throw new Error(`[Printer] Request the number of buffers of Remote Field(33) error : ${err}`);
+                }
             }
+            
     
         
          async clearBuffers(){

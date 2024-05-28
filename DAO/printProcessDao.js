@@ -27,7 +27,7 @@ function formatCurrencyIDR(amount, locale = 'id-ID') {
 }
 import Queue from '../utils/queue.js';
 import printerTemplate from '../utils/printerTemplates.js';
-import {putDataToAPI} from '../API/APICall/apiCall.js';
+import {postDataToAPI, putDataToAPI} from '../API/APICall/apiCall.js';
 import { masterConfig } from '../index.js';
 export default class printProcess {
     constructor(printer, db) {
@@ -185,6 +185,7 @@ export default class printProcess {
                 let serialization = await this.getDataBySmallestId(this.db);
                 if (!serialization){ // no more data on database
                     waitingForCompletion=true;
+                    console.log("[Printing Process] no more data on database is found, entering completion phase")
                     break;
                 }
                 P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) 
@@ -214,8 +215,8 @@ export default class printProcess {
             }
             if (waitingForCompletion){
                 let bufferCount = await this.printer.getBufNum()
-                while(!this.responseQueue.isEmpty()){ // this while loop is useful if no printing happening while waiting for completion
-                    while(this.responseQueue.size()>bufferCount){ // keep dequeuing until it matches the number of buffer left
+                while(!this.full_code_queue.isEmpty() && this.printer.isOccupied){ // this while loop is useful if no printing happening while waiting for completion
+                    while(this.full_code_queue.size()>bufferCount){ // keep dequeuing until it matches the number of buffer left
                         const printed = this.full_code_queue.dequeue();
                         await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
                             full_code:printed,
@@ -229,6 +230,7 @@ export default class printProcess {
                 await this.printer.stop()
                 this.printer.isOccupied=false
                 console.log(`[Printing Process] printing process with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id} is completed! $`)
+                await postDataToAPI('v1/work-order/active-job/complete-print',{})
             }
             
             await new Promise(resolve => setTimeout(resolve, delayTime)) // The delay
