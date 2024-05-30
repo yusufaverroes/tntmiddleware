@@ -3,18 +3,19 @@ import { Kafka } from 'kafkajs';
 export default class KafkaProducer {
   constructor(clientId, brokers) {
     this.kafka = new Kafka({
-      clientId,
-      brokers
+      clientId:clientId,
+      brokers:[brokers]
     });
     this.producer = this.kafka.producer();
   }
 
   async connect() {
     try {
+      console.log("[Kafka] Connecting...")
       await this.producer.connect();
-      console.log('Connected to Kafka broker.');
+      console.log('[Kafka] Connected to Kafka broker.');
     } catch (error) {
-      console.error('Error connecting to Kafka broker:', error);
+      console.error('[Kafka] Error connecting to Kafka broker:', error);
     }
   }
 

@@ -11,6 +11,8 @@ import Rejector from './DAO/rejectorDao.js'
 import MongoDB from './DAO/mongoDB.js';
 import WebSocketClient from './DAO/webSocketClient.js'
 import AggregationCam from './DAO/aggregationCamDao.js'; 
+import KafkaProducer from './DAO/kafka.js';
+import HealthChecks from './DAO/healthCheck.js';
 
 process.on('unhandledRejection', (err) => {
     console.error('Unhandled Promise Rejection:', err);
@@ -20,8 +22,11 @@ process.on('unhandledRejection', (err) => {
 // const masterConfig = new lowDB('../utils/master-config.json')
 // await masterConfig.init()
 // console.log(`masterConfigs: ${masterConfig.getAllConfig()}`)
+const kafkaProdHC = new KafkaProducer("middleWare",process.env.KAFKA_BROKER_ENDPOINT)
+
 
 const masterConfig = new lowDB('../utils/master-config.json');
+
 
 (async () => {
   try {
@@ -40,12 +45,13 @@ await mongoDB.connect()
 
 const { version, Chip, Line } = pkg; //setting up GPIOs
 global.chip = new Chip(4)
-global.output = new Line(chip, process.env.REJECTOR_OUTPUT_PIN); output.requestOutputMode();
-global.input = new Line(chip, process.env.REJECTOR_INPUT_PIN); input.requestInputMode();
-output.setValue(1)
+global.rejectorActuator = new Line(chip, process.env.REJECTOR_OUTPUT_PIN); rejectorActuator.requestOutputMode();
+global.rejectorSensor = new Line(chip, process.env.REJECTOR_INPUT_PIN); rejectorSensor.requestInputMode();
+global.aggregateButton = new Line(chip, process.env.AGGREGATE_BUTTON_INPUT_PIN); aggregateButton.requestInputMode();
+rejectorActuator.setValue(1)
 
 const serQueue = new Queue(); // instancing queue class for serialization
-const rejector = new Rejector(input,output, serQueue) //instancing Rejector class
+const rejector = new Rejector(rejectorSensor,rejectorActuator, serQueue) //instancing Rejector class
 rejector.start() 
 
 const serialCamera =  new serCam(process.env.SERIALIZATION_CAM_IP,process.env.SERIALIZATION_CAM_PORT,"1",serQueue); //instancing serCam class for serialization Camera
@@ -62,8 +68,12 @@ const wsAggregation = new WebSocketClient(process.env.WS_IP, process.env.WS_PORT
 try{await wsAggregation.connect()}catch(err){console.log(err)}
 console.log(`[Websocket] status: ${wsAggregation.status}`) 
 
-const aggCam = new AggregationCam(wsAggregation)// instancing aggregation cam class using wsAggregation instance
+const aggCam = new AggregationCam(wsAggregation, aggregateButton)// instancing aggregation cam class using wsAggregation instance
 
+await kafkaProdHC.connect();
+const HC = new HealthChecks(printer, serialCamera,aggCam,kafkaProdHC)
+HC.run()
+console.log("lewat")
 export  {printingProcess,printer, serialCamera, serQueue, rejector, masterConfig}  
 startHTTPServer(process.env.SERVER_PORT)
 

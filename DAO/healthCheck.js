@@ -4,15 +4,15 @@ export default class HealthChecks{
         this.printer = printer
         this.serCam = serCam
         this.aggCam = aggCam
-        this.kafka = kafka
+        this.kafkaProducer = kafka
         this.checkInterval = 5000 //five secs
     }
-    constructor(printer, serCam, aggCam, kafkaProducer) {
-        this.printer = printer;
-        this.serCam = serCam;
-        this.aggCam = aggCam;
-        this.kafkaProducer = kafkaProducer;
-      }
+    // constructor(printer, serCam, aggCam, kafkaProducer) {
+    //     this.printer = printer;
+    //     this.serCam = serCam;
+    //     this.aggCam = aggCam;
+    //     this.kafkaProducer = kafkaProducer;
+    //   }
     
       async getStatus(peripheral) {
         let status = null;
@@ -64,6 +64,7 @@ export default class HealthChecks{
       }
       async sendToKafka(peripheral) {
         const status = this.getStatus(peripheral);
+        
         const payload = {
           peripherals: peripheral,
           status: status.status,
@@ -73,7 +74,7 @@ export default class HealthChecks{
           timestamp: new Date().toISOString(),
           message: status.message
         };
-    
+        console.log(payload)
         const message = JSON.stringify(payload);
     
         try {
@@ -84,6 +85,7 @@ export default class HealthChecks{
       }
     
       run() {
+        console.log("[Health Check] health check is running...")
         setInterval(() => this.sendToKafka('PRINTER'), this.checkInterval);
         setInterval(() => this.sendToKafka('SER_CAM'), this.checkInterval);
         setInterval(() => this.sendToKafka('AGG_CAM'), this.checkInterval);
