@@ -7,13 +7,6 @@ export default class HealthChecks{
         this.kafkaProducer = kafka
         this.checkInterval = 5000 //five secs
     }
-    // constructor(printer, serCam, aggCam, kafkaProducer) {
-    //     this.printer = printer;
-    //     this.serCam = serCam;
-    //     this.aggCam = aggCam;
-    //     this.kafkaProducer = kafkaProducer;
-    //   }
-    
       async getStatus(peripheral) {
         let status = null;
         let ip = null;

@@ -38,6 +38,7 @@ const readWeight = async () => {
 
                 let readings = [];
                 const maxReadings = 5;
+                let idx =0;
 
                 // Continuously read data from the port
                 parser.on('data', data => {
@@ -46,7 +47,12 @@ const readWeight = async () => {
 
                     if (!isNaN(weight)) {
                         readings.push(weight);
+                        idx++;
                     }
+                    if (readings.length>0 && Math.abs(readings[idx]-readings[idx-1]) >0.0005){
+                        resolve('unstable') 
+                    } 
+
 
                     if (readings.length >= maxReadings) {
                         const average = readings.reduce((sum, value) => sum + value, 0) / readings.length;
