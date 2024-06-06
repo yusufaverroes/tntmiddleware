@@ -18,15 +18,17 @@ const printerTemplate = {
         //const QRtext = printer.createModuleText(QRcode.full_code, false);
         
         const QRModule = ["0301"];// buffer's field 1
-        const BPOM = printer.createModuleText("BPOM RI",  true, 105,3,  0,  17,  0,  "Arial");
-        const QR = printer.createModuleQR(QRModule,  76,  18, 4,  0, 'Data Matrix', 'H',  10, false,  'Blank', 0);
+        const BPOM = printer.createModuleText("       BPOM RI      ",  true, 10 ,3,  0,  17,  0,  "Arial");
+        const QR = printer.createModuleQR(QRModule,  10,  18, 4,  0, 'Data Matrix', 'H',  10, false,  'Blank', 0);
         const BN = printer.createModuleText(`BN  ${details.BN}`,  true,  10,  160,  0,  17,  0,  "Arial"); 
         const MD = printer.createModuleText(`MD  ${details.MD}`,  true,  10,  190,  0,  17,  0,  "Arial");
         const ED = printer.createModuleText(`ED  ${details.ED}`,  true,  10,  220,  0,  17,  0,  "Arial");
         const HET = printer.createModuleText(`HET ${details.HET}`,  true,  10,  250,  0,  17,  0,  "Arial");
-        const field = printer.createModuleField(10, 280, 0, 17, 0, "Arial", 15, 0, 1, 0, 0); // SN
-        const modules= [QR, BPOM,field,BN, MD, ED, HET]
+        const field = printer.createModuleField(10, 280, 0, 17, -5, "Arial", 15, 0, 1, 0, 0); // SN
+        //const modules= [QR, BPOM,field,BN, MD, ED, HET]
+        const modules= [ BPOM,QR, field,BN, MD, ED, HET]
         const msg = printer.createMsg(modules, fileName);
+        console.log("[PrinterTamplate] tamplate2 is chosen")
         return msg;
     }
 };

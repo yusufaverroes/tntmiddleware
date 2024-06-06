@@ -43,7 +43,11 @@ export default class Queue {
       }
       return str;
     }
+    clear(){
+      this.items=[];
+    }
   }
+
   
   // Example usage:
   // const queue = new Queue();

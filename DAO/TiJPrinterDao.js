@@ -398,18 +398,18 @@ export default class TIJPrinter {
                             case 0x00:  
                                 console.log("[Printer] Print stopped successfully.")
                                 return true;
-                            case 0x01:
+                            case 0x12:
                                 console.log("[Printer] Print not started. The print has been stopped.")
                                 return true;
                             default:
-                                throw new Error("unknown P_Status") ;
+                                throw new Error("unknown P_Status : ",responseBuffer[3]) ;
                         }
                     
                  }else{
                      throw new Error("got NACK")
                  }
              }).catch((err) =>{
-                throw new Error (`[Printer] Start Print(11) error : ${err}`); 
+                throw new Error (`[Printer] Stop Print(12) error : ${err}`); 
              })
          }
          async  requestInkRemains() {

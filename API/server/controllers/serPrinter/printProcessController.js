@@ -5,16 +5,17 @@ import printerTemplate from '../../../../utils/printerTemplates.js';
 
 
 const stopPrinting = async (req, res) => {
-    printingProcess.isOccupied=false;
+    printer.isOccupied=false;
+    // printingProcess.full_code_queue.clear();
     await printer.send(12)
-    await printer.send(21)
+    // await printer.send(21)
     console.log("printer is successfully stopped by the BE")
     res.status(200).send({message:"printer is successfully stopped"})
 }
 
 const startPrinting = async (req, res) => {
     let missingBody=""
-    
+    console.log("start printing called by BE")
     if(req.body.work_order_id){
         printingProcess.work_order_id = req.body.work_order_id
     }else{missingBody="work_order_id"}
@@ -34,6 +35,7 @@ const startPrinting = async (req, res) => {
     }
 
     if (printer.running===false){
+        console.log("[startPrinting API] Cannot connect to the printer")
         return res.status(500).send({message: "Cannot connect to the printer" })
     }
     try {

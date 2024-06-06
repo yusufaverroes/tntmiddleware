@@ -13,6 +13,7 @@ import WebSocketClient from './DAO/webSocketClient.js'
 import AggregationCam from './DAO/aggregationCamDao.js'; 
 import KafkaProducer from './DAO/kafka.js';
 import HealthChecks from './DAO/healthCheck.js';
+import weighingScaleDao from './DAO/weighingScaleDao.js'
 
 process.on('unhandledRejection', (err) => {
     console.error('Unhandled Promise Rejection:', err);
@@ -48,6 +49,7 @@ global.chip = new Chip(4)
 global.rejectorActuator = new Line(chip, process.env.REJECTOR_OUTPUT_PIN); rejectorActuator.requestOutputMode();
 global.rejectorSensor = new Line(chip, process.env.REJECTOR_INPUT_PIN); rejectorSensor.requestInputMode();
 global.aggregateButton = new Line(chip, process.env.AGGREGATE_BUTTON_INPUT_PIN); aggregateButton.requestInputMode();
+global.lablePrinterButton = new Line(chip, process.env.LABEL_PRINTER_INPUT_PIN); lablePrinterButton.requestInputMode();
 rejectorActuator.setValue(1)
 
 const serQueue = new Queue(); // instancing queue class for serialization
@@ -69,11 +71,12 @@ try{await wsAggregation.connect()}catch(err){console.log(err)}
 console.log(`[Websocket] status: ${wsAggregation.status}`) 
 
 const aggCam = new AggregationCam(wsAggregation, aggregateButton)// instancing aggregation cam class using wsAggregation instance
-
-await kafkaProdHC.connect();
-const HC = new HealthChecks(printer, serialCamera,aggCam,kafkaProdHC)
-HC.run()
-console.log("lewat")
+aggCam.runAggregateButton();
+// await kafkaProdHC.connect();
+// const HC = new HealthChecks(printer, serialCamera,aggCam,kafkaProdHC)
+// HC.run()
+// console.log("lewat")
+weighingScaleDao.readPrinterButton(lablePrinterButton);
 export  {printingProcess,printer, serialCamera, serQueue, rejector, masterConfig}  
 startHTTPServer(process.env.SERVER_PORT)
 

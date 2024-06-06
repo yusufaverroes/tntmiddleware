@@ -17,10 +17,11 @@ dotenv.config({ path: envPath });
       'X-AUTH-BASIC': 'Basic c2VyYXRvbmljOjUzcjR0MG4xYw=='
     }
   })
-    console.log('[API Call] post response::', response.data);
-    console.log(`Req ID : ${response.headers['x-request-id']}`)
+    console.log('[API Call] Req POST Body : ', data)
+    console.log(`[API Call] Req ID : ${response.headers['x-request-id']}, POST response:`, response.data);
+    
   } catch (error) {
-    console.error('[API Call] Error post data to API:', error.message);
+    console.error(`[API Call] Error on POST data to API : `, error.message);
    
   }
 }
@@ -33,10 +34,10 @@ export async function putDataToAPI(route, data) {
       'X-AUTH-BASIC': 'Basic c2VyYXRvbmljOjUzcjR0MG4xYw=='
     }
   })
-    console.log('[API Call] put response:', response.data);
-    console.log(`Req ID : ${response.headers['x-request-id']}`)
+    console.log('[API Call] Req PUT Body : ', data)
+    console.log(`[API Call] Req ID : ${response}, PUT response:`, response.data);
   } catch (error) {
-    console.error('[API Call] Error put data to API:', error.message);
+    console.error(`[API Call] Error on PUT data to API : `, error.message);
     
   }
 }

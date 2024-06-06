@@ -4,10 +4,10 @@ class AggregationCam {
   constructor(webSocketClient, aggButton) {
     this.webSocketClient = webSocketClient;
     this.receivedMessages = [];
-    // this.handleMessage = this.handleMessage.bind(this);
+    this.handleMessage = this.handleMessage.bind(this);
     this.aggButton = aggButton;
     this.handleMessage_APICall = this.handleMessage_APICall.bind(this);
-    this.webSocketClient.receiveMessage(this.handleMessage_APICall);
+    this.webSocketClient.receiveMessage(this.handleMessage);
     this.responseEvent = new EventEmitter();
   }
 
@@ -22,7 +22,7 @@ class AggregationCam {
     });
   }
 
-  asyncgetData() {
+  async getData() {
     return new Promise((resolve, reject) => {
       this.receivedMessages = [];
       this.webSocketClient.sendMessage('get_data');
@@ -40,10 +40,10 @@ class AggregationCam {
         // })
         resolve(async (result)=>{
           try{
-            await postDataToAPI(`v1/work-order/active-job/aggregation`, {
-                    result
-            
-                  })
+            // await postDataToAPI(`v1/work-order/active-job/aggregation`, {
+            //         result  
+            //       })
+            console.log(result)
           }catch(err){
 
           }
@@ -53,26 +53,28 @@ class AggregationCam {
     })
   }
 
-  // async handleMessage(message) {
-  //   console.log(`[AggCam] incoming message`) // add this line for debugging
-  //   this.receivedMessages.push(message);
-  //   if (this.receivedMessages.length === 3) {
-  //     const result = this.mergeResponses(this.receivedMessages);
-  //     const codes = result.scans.map((value) => {
-  //       return value.code
-  //     })
-  //     await postDataToAPI(`v1/work-order/active-job/aggregation`, {
-  //       serialization_codes: codes
-
-  //     })
-  //   }
-  // };
+  async handleMessage(message) {
+    console.log(`[AggCam] incoming message`) // add this line for debugging
+    this.receivedMessages.push(message);
+    if (this.receivedMessages.length === 3) {
+      const result = this.mergeResponses(this.receivedMessages);
+      // const codes = result.scans.map((value) => {
+      //   return value.code
+      // })
+      console.log(`[AggCam] got 3 messages`)
+      await postDataToAPI(`v1/work-order/active-job/aggregation`, {
+        serialization_codes: result.scans
+      })
+      this.receivedMessages = [];
+    }
+  };
   async handleMessage_APICall(message) {
-    console.log(`[AggCam] incoming message`)//: ${message}`) // add this line for debugging
+    // console.log(`[AggCam] incoming message`)//: ${message}`) // add this line for debugging
     this.receivedMessages.push(message);
     if (this.receivedMessages.length === 3) {
       this.responseEvent.emit('responseReceived');
       const result = this.mergeResponses(this.receivedMessages);
+      console.log(`[AggCam] got 3 messages - API`)
 
     }
   };
@@ -129,18 +131,23 @@ class AggregationCam {
     function sleep(ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
     }
-    let blockButton=false;
     let lastExecutionTime=0;
     let debounceTime=200;
+    console.log("[AggCam] button is ready")
     while (true) {
       let buttonValue = this.aggButton.getValue();
+      // console.log(buttonValue)
       let currentTime = Date.now();
 
-      if (buttonValue === 1 && (currentTime - lastExecutionTime) >= debounceTime && blockButton===false) {
-        await this.getData();
-        this.lastExecutionTime = currentTime;
-        blockButton=true;
+      if (buttonValue === 1 && (currentTime - lastExecutionTime) >= debounceTime) {
+        console.log("[AggCam] Aggregate button is pressed.")
+        // this.webSocketClient.receiveMessage(this.handleMessage_APICall);
+        this.receivedMessages = [];
+        this.webSocketClient.sendMessage('get_data');
 
+        this.lastExecutionTime = currentTime;
+        // this.webSocketClient.receiveMessage(this.handleMessage);
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
       await sleep(50);  // Small delay to prevent tight loop

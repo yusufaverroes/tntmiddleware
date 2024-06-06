@@ -82,7 +82,7 @@ export default class printProcess {
                   }
                 }, {
                   '$match': {
-                    'status': this.sampling?"SAMPLE_SENT_TO_PRINTER":'SENT_TO_PRINTER', 
+                    'status':'SENT_TO_PRINTER', // this.sampling?"SAMPLE_SENT_TO_PRINTER":
                     'work_order_id': this.work_order_id, 
                     'assignment_id': this.assignment_id
                   }
@@ -100,7 +100,7 @@ export default class printProcess {
     async getSmallestId(db) {
         const result = await db.collection('serialization').findOne(
             {
-                status: this.sampling?"SAMPLING":"PRINTING",
+                status: "PRINTING", //this.sampling?"SAMPLING":
                 work_order_id:this.work_order_id,
                 assignment_id:this.assignment_id
             },
@@ -145,11 +145,28 @@ export default class printProcess {
             let P_status ="no errors"
 
             await this.printer.clearBuffers() // clear buffer before start printing
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
             const msg =printerTemplate[this.templateName](this.details,"QR003") 
-            await this.printer.send(msg) 
+            console.log("template name : ", this.templateName)
+            
+            await this.printer.send(msg)
+            await new Promise(resolve => setTimeout(resolve, 1000));
             await this.printer.startPrint()// start print
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            
+
+
+            const ress = await this.printer.send("1E055152303033")
+            console.log("response from sending 1E", ress)
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            const ress1 = await this.printer.send("01") 
+            console.log("response from sending 01", ress1)
+            await new Promise(resolve => setTimeout(resolve, 1000));
             console.log("[Printing Process] filling up the first 10 buffers...")
-            while (serialization != null && (P_status === "no errors" || P_status=== "still full")){ // filling up the buffer first
+            while (serialization && (P_status === "no errors" || P_status=== "still full")){ // filling up the buffer first
                 
                 P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) // goes to printer buffer
                 await this.db.collection('serialization')
@@ -164,6 +181,7 @@ export default class printProcess {
                     break;
                 }
             }
+            console.log("BUF NUM : ",await this.printer.getBufNum())
             this.printer.isOccupied = true;
             return "success"
         }catch(err){
@@ -173,7 +191,7 @@ export default class printProcess {
     }
 
     async print(){ // TODO: stoping logic after completing job (Done)
-        let delayTime=5000; // initial delay time
+        let delayTime=2500; // initial delay time
         let fistPrintedFlag=false; //flag for telling that a first object has been printed
         let filledBufNum=0;
         let P_status="no errors"
@@ -217,6 +235,7 @@ export default class printProcess {
                 let bufferCount = await this.printer.getBufNum()
                 while(!this.full_code_queue.isEmpty() && this.printer.isOccupied){ // this while loop is useful if no printing happening while waiting for completion
                     while(this.full_code_queue.size()>bufferCount){ // keep dequeuing until it matches the number of buffer left
+                        console.log(`[Printing Process] buffer count :${bufferCount} vs que size: ${this.full_code_queue.size()}`)
                         const printed = this.full_code_queue.dequeue();
                         await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
                             full_code:printed,
@@ -227,7 +246,8 @@ export default class printProcess {
                     await new Promise(resolve => setTimeout(resolve, delayTime))
                 }
                 
-                await this.printer.stop()
+                
+                await this.printer.clearBuffers()
                 this.printer.isOccupied=false
                 console.log(`[Printing Process] printing process with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id} is completed! $`)
                 await postDataToAPI('v1/work-order/active-job/complete-print',{})
@@ -237,7 +257,9 @@ export default class printProcess {
 
 
         }
+       
     }
+    
 
 }
 

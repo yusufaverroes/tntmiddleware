@@ -77,7 +77,7 @@ export default class serCam {
         const otentifikasi_pattern1 = /^\(90\)[A-Za-z0-9]{1,16}\(10\)[A-Za-z0-9]{1,20}\(17\)\d{1,6}\(21\)[A-Za-z0-9]{1,20}$/;
         const otentifikasi_pattern2 = /^\(01\)[A-Za-z0-9]{14}\(10\)[A-Za-z0-9]{1,20}\(17\)\d{1,6}\(21\)[A-Za-z0-9]{1,20}$/;
         let result=false
-        let reason=null
+        let reason="success"
         let code = data.code
         if (identifikasi_pattern.test(code) || otentifikasi_pattern1.test(code) || otentifikasi_pattern2.test(code)) {
             console.log("[Ser Cam] Data is in a correct format:", code);
@@ -109,13 +109,12 @@ export default class serCam {
         
         const check = this.checkFormat(data)
         this.queue.enqueue(check.result)
-        await new Promise(resolve => setTimeout(resolve, 300)); // TODO to check if necessary by testing
-        await postDataToAPI(`v1/work-order/${printingProcess.work_order_id}/serialization/validate`,{ 
-            accuracy:data.accuracy,
-            status:check.result?"pass":"rejected",
+        await postDataToAPI(`v1/work-order/${printingProcess.work_order_id}/assignment/${printingProcess.assignment_id}/serialization/validate`,{ 
+            accuracy:isNaN(data.accuracy)?0:data.accuracy,
+            status:check.result?"passed":"rejected",
             code:data.code,
-            reason:check.reason
-            
+            reason:check.reason,
+            event_time:Date.now()
         }) 
         
     }
