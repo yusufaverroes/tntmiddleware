@@ -16,7 +16,7 @@ export default class Rejection {
             console.log("[Rejector] Rejector cannot be started twice") 
             return}; // Don't start if already running
         this.running = true; // Set running flag to true
-        
+        console.log("[Rejector] Rejector is started") 
         try { 
             this.flag = false;
             while (!this.flag) {

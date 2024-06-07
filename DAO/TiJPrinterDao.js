@@ -103,7 +103,7 @@ export default class TIJPrinter {
     
             let timeout = setTimeout(() => {
                 reject(`[Printer]Timeout occurred. No response from printer. Sent Command : ${commandName} `); // Reject with error message directly
-            }, 2000);
+            }, 2500);
     
             // Event listener for when response is received
             this.responseEvent.once('responseReceived', () => {
@@ -276,6 +276,7 @@ export default class TIJPrinter {
                     }
                 } catch (error) {
                     // console.log(err);
+                    // console.log(`[Printer] Sending remote field data: ${messages}`);
                     throw new Error (`[Printer] Download Remote Field Data error: ${error}`); 
                 }
             }

@@ -196,17 +196,53 @@ export default class printProcess {
         let filledBufNum=0;
         let P_status="no errors"
         let waitingForCompletion=false;
+        let oldvalue=null; // rey
+        let rey_flag=false; //rey
         console.log("[Printer Process] waiting object to be printed")
         while (this.printer.isOccupied){
             
             while(true){ // filling up the buffer
                 let serialization = await this.getDataBySmallestId(this.db);
+                // rey start here (check buffer before sending FOR YUSUF LATER)
+                if (oldvalue != null && oldvalue.id == serialization.id)
+                    {
+                        // if(P_status==="still_full")
+                        //     {
+                                console.log("rey flag entered");
+                                console.log(oldvalue.id,serialization.id,P_status);
+                                rey_flag=true;
+                            // }
+                            // else
+                            // {
+                                
+                            // }
+                    }
+                    else
+                    {
+                        console.log("rey flag false entered")
+                        // console.log(oldvalue.id,serialization.id,P_status);
+                        oldvalue=serialization;
+                        rey_flag=false;
+                    }
+                // rey end here REYNOLD
                 if (!serialization){ // no more data on database
                     waitingForCompletion=true;
                     console.log("[Printing Process] no more data on database is found, entering completion phase")
                     break;
                 }
-                P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) 
+                try {
+                    // rey code 
+                    if (!rey_flag || P_status === "still full")
+                        {
+                            P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) 
+                        }
+                        else
+                        {
+                            rey_flag=false;
+                        }
+                } catch (err) {
+                    console.log("[Printer Process] - Failed sending buffer to printer, ", err);
+                }       
                 if (P_status === "no errors" || P_status ==="now full") {
                     await this.db.collection('serialization')
                      .updateOne( { _id: serialization.id}, 
@@ -252,7 +288,14 @@ export default class printProcess {
                 console.log(`[Printing Process] printing process with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id} is completed! $`)
                 await postDataToAPI('v1/work-order/active-job/complete-print',{})
             }
-            
+            if (P_status==="still full")
+                {
+                    delayTime=8000;
+                }
+                else
+                {
+                    delayTime=2500;
+                }
             await new Promise(resolve => setTimeout(resolve, delayTime)) // The delay
 
 

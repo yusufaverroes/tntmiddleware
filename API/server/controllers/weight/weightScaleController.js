@@ -2,15 +2,16 @@ import weighingScaleDao from "../../../../DAO/weighingScaleDao.js";
 
 const getWeight = async (req,res) =>{
     try{
-        let weight=0
-        for (let i =0 ; i<3;i++){
-             weight = await weighingScaleDao.readWeight();
-            if (weight==='unstable' && i===2){
-                throw new Error('Weighing scale is not stable')
-            }else{
-                break;
-            }
-        }
+        const weight= await weighingScaleDao.readWeight();
+        // for (let i =0 ; i<3;i++){
+        //      weight = await weighingScaleDao.readWeight();
+            
+        //     if (typeof weight==='string' && i===2){
+        //         throw new Error('Weighing scale is not stable')
+        //     }else{
+        //         break;
+        //     }
+        // }
         
         res.status(200).send({weight:weight})
     }catch(err){
