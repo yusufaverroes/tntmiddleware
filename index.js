@@ -14,7 +14,7 @@ import AggregationCam from './DAO/aggregationCamDao.js';
 import KafkaProducer from './DAO/kafka.js';
 import HealthChecks from './DAO/healthCheck.js';
 import weighingScaleDao from './DAO/weighingScaleDao.js'
-
+import printerTemplate from './utils/printerTemplates.js';
 process.on('unhandledRejection', (err) => {
     console.error('Unhandled Promise Rejection:', err);
     // Handle the error gracefully or log it
@@ -42,7 +42,11 @@ const masterConfig = new lowDB('../utils/master-config.json');
   }
 })();
 const mongoDB = new MongoDB(process.env.MONGODB_URI, process.env.DATABASE_NAME) // settiing up mongodb connection
-await mongoDB.connect()
+try{
+  await mongoDB.connect()}
+  catch(err){
+    console.log(err)
+  }
 
 const { version, Chip, Line } = pkg; //setting up GPIOs
 global.chip = new Chip(4)
@@ -79,6 +83,59 @@ aggCam.runAggregateButton();
 weighingScaleDao.readPrinterButton(lablePrinterButton);
 export  {printingProcess,printer, serialCamera, serQueue, rejector, masterConfig}  
 startHTTPServer(process.env.SERVER_PORT)
+const details={
+  BN: "TPG12344",
+  MD: "13 JUN 24", 
+  ED: "30 JUN 24",
+  HET: "Rp. 555.55 / BOX"
+};
+
+
+
+await printer.clearBuffers() // clear buffer before start printing
+await new Promise(resolve => setTimeout(resolve, 1000));
+
+const msg =printerTemplate['template2'](details,"QR003") 
+
+
+await printer.send(msg)
+await new Promise(resolve => setTimeout(resolve, 1000));
+await printer.startPrint()// start print
+await new Promise(resolve => setTimeout(resolve, 1000));
+
+
+
+
+let ress = await printer.send("1E055152303033")
+console.log("response from sending 1E", ress)
+await new Promise(resolve => setTimeout(resolve, 1000));
+let ress1 = await printer.send("01") 
+console.log("response from sending 01", ress1)
+await new Promise(resolve => setTimeout(resolve, 1000));
+
+ ress = await printer.send("1E055152303033")
+console.log("response from sending 1E", ress)
+await new Promise(resolve => setTimeout(resolve, 1000));
+ ress1 = await printer.send("01") 
+console.log("response from sending 01", ress1)
+await new Promise(resolve => setTimeout(resolve, 1000));
+
+ ress = await printer.send("1E055152303033")
+console.log("response from sending 1E", ress)
+await new Promise(resolve => setTimeout(resolve, 1000));
+ress1 = await printer.send("01") 
+console.log("response from sending 01", ress1)
+await new Promise(resolve => setTimeout(resolve, 1000));
+
+
+
+await printer.sendRemoteFieldData(['SN 123ABCDEFG123', '(90)123456790567898765678987656789(60)123ABCDEFG123']) // goes to printer buffer
+await new Promise(resolve => setTimeout(resolve, 1000));
+
+
+
+console.log("[Printer] printer is started")
+
 
 
 await new Promise(resolve => setTimeout(resolve, 1000));

@@ -7,7 +7,7 @@ export default class HealthChecks{
         this.kafkaProducer = kafka
         this.checkInterval = 5000 //five secs
     }
-      async getStatus(peripheral) {
+      async getStatus(peripheral) { //TODO : to fix if error occurred should return the value
         let status = null;
         let ip = null;
         let template_id = null;
@@ -56,7 +56,7 @@ export default class HealthChecks{
         };
       }
       async sendToKafka(peripheral) {
-        const status = this.getStatus(peripheral);
+        const status = await this.getStatus(peripheral);
         
         const payload = {
           peripherals: peripheral,

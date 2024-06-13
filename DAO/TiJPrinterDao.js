@@ -423,7 +423,7 @@ export default class TIJPrinter {
                             const inkLevels = [];
                             // Loop through the ink level bytes (from 5th to the 3rd last byte)
                             for (let i = 5; i < responseBuffer.length - 3; i++) {
-                                inkLevels.push(parseInt(responseBuffer[i], 16)); // Convert hex to decimal
+                                inkLevels.push(responseBuffer[i]); // Convert hex to decimal
                             }
                             console.log("[Printer] Ink levels:", inkLevels);
                             return inkLevels;
