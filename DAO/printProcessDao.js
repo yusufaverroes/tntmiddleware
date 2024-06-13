@@ -198,6 +198,7 @@ export default class printProcess {
         let waitingForCompletion=false;
         let oldvalue=null; // rey
         let rey_flag=false; //rey
+        let flag_escape=0;
         console.log("[Printer Process] waiting object to be printed")
         while (this.printer.isOccupied){
             
@@ -206,23 +207,30 @@ export default class printProcess {
                 // rey start here (check buffer before sending FOR YUSUF LATER)
                 if (oldvalue != null && oldvalue.id == serialization.id)
                     {
-                        // if(P_status==="still_full")
-                        //     {
-                                console.log("rey flag entered");
-                                console.log(oldvalue.id,serialization.id,P_status);
-                                rey_flag=true;
-                            // }
-                            // else
-                            // {
-                                
-                            // }
+                        console.log("rey flag entered QR has not changed");
+                        console.log(oldvalue.id,serialization.id,P_status);
+                        rey_flag=true;
+                        flag_escape++;
+                        if (flag_escape > 3) // exit infinite while loop
+                            {
+                                await this.db.collection('serialization')
+                                .updateOne( { _id: serialization.id}, 
+                                { $set: { status : "PRINTING"} } // update the status of the printed code upon pusing to buffer 
+                                )
+                                this.full_code_queue.enqueue(serialization.full_code)
+                                const printed = this.full_code_queue.dequeue();
+                                await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
+                                full_code:printed,
+                                })
+                                flag_escape=0;
+                            }
                     }
                     else
                     {
-                        console.log("rey flag false entered")
-                        // console.log(oldvalue.id,serialization.id,P_status);
+                        console.log("rey flag false entered QR has changed")
                         oldvalue=serialization;
                         rey_flag=false;
+                        flag_escape=0;
                     }
                 // rey end here REYNOLD
                 if (!serialization){ // no more data on database
@@ -231,8 +239,17 @@ export default class printProcess {
                     break;
                 }
                 try {
-                    // rey code 
-                    if (!rey_flag || P_status === "still full")
+                    // rey code
+                    if (P_status=== "still full")
+                        {
+                            P_status="full attempt to send";
+                            flag_escape=0;
+                        }
+                    else if (P_status=== "full attempt to send")
+                    {
+                        P_status="failed to update to DB";                        
+                    }
+                    if (!rey_flag || P_status === "full attempt to send")
                         {
                             P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) 
                         }
@@ -243,12 +260,12 @@ export default class printProcess {
                 } catch (err) {
                     console.log("[Printer Process] - Failed sending buffer to printer, ", err);
                 }       
-                if (P_status === "no errors" || P_status ==="now full") {
+                if (P_status === "no errors" || P_status ==="now full" || P_status==="full attempt to send" || P_status==="failed to updated to DB") {
                     await this.db.collection('serialization')
                      .updateOne( { _id: serialization.id}, 
-                    { $set: { status : this.sampling?"SAMPLING":"PRINTING"} } // update the status of the printed code upon pusing to buffer 
+                    { $set: { status : "PRINTING"} } // update the status of the printed code upon pusing to buffer 
                     )
-                    this.full_code_queue.enqueue(serialization.full_code)
+                    this.full_code_queue.enqueue(serialization.full_code) // yusuf: this will be called twice if failed to upddate db 
                     const printed = this.full_code_queue.dequeue();
                     await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
                         full_code:printed,
@@ -288,13 +305,20 @@ export default class printProcess {
                 console.log(`[Printing Process] printing process with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id} is completed! $`)
                 await postDataToAPI('v1/work-order/active-job/complete-print',{})
             }
-            if (P_status==="still full")
+            if (P_status==="still full" || P_status==="now full")
                 {
-                    delayTime=8000;
+                    delayTime=10000;
                 }
-                else
+                else if (rey_flag || P_status === "full attempt to send")
+                    {
+                        delayTime=5000;
+                    }
+                else if (P_status === "no errors") 
                 {
                     delayTime=2500;
+                }
+                else {
+                    delayTime=5000;
                 }
             await new Promise(resolve => setTimeout(resolve, delayTime)) // The delay
 
