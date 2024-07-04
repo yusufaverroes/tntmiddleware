@@ -61,11 +61,13 @@ const rejector = new Rejector(rejectorSensor,rejectorActuator, serQueue) //insta
 rejector.start() 
 
 const serialCamera =  new serCam(process.env.SERIALIZATION_CAM_IP,process.env.SERIALIZATION_CAM_PORT,"1",serQueue); //instancing serCam class for serialization Camera
-serialCamera.connect()
+try{await serialCamera.connect()}catch(err){console.log(err)}
 // console.log(`regexnya : ${JSON.stringify(serialCamera.patterns)}`)
 
 const printer = new TIJPrinter(process.env.TiJPrinter_IP, process.env.TiJPrinter_PORT,process.env.TiJPrinter_SLAVE_ADDRESS,"1")//instancing printer class 
-printer.connect()
+try{
+  console.log("helllooow")
+  await printer.connect()}catch(err){console.log("Printer connection error",err)}
 await new Promise(resolve => setTimeout(resolve, 500));
 
 const printingProcess = new printProcess(printer, mongoDB.db) // instancing printing process class with printer and mongoDB instances as the constructor
@@ -91,7 +93,8 @@ const details={
 };
 
 
-
+await printer.startPrint()// start print
+await new Promise(resolve => setTimeout(resolve, 1000));
 await printer.clearBuffers() // clear buffer before start printing
 await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -100,32 +103,19 @@ const msg =printerTemplate['template2'](details,"QR003")
 
 await printer.send(msg)
 await new Promise(resolve => setTimeout(resolve, 1000));
-await printer.startPrint()// start print
-await new Promise(resolve => setTimeout(resolve, 1000));
 
 
 
 
-let ress = await printer.send("1E055152303033")
-console.log("response from sending 1E", ress)
+
+await printer.send("1E055152303033")
+
 await new Promise(resolve => setTimeout(resolve, 1000));
-let ress1 = await printer.send("01") 
-console.log("response from sending 01", ress1)
+await printer.send("01") 
+// console.log("response from sending 01", ress1)
 await new Promise(resolve => setTimeout(resolve, 1000));
 
- ress = await printer.send("1E055152303033")
-console.log("response from sending 1E", ress)
-await new Promise(resolve => setTimeout(resolve, 1000));
- ress1 = await printer.send("01") 
-console.log("response from sending 01", ress1)
-await new Promise(resolve => setTimeout(resolve, 1000));
 
- ress = await printer.send("1E055152303033")
-console.log("response from sending 1E", ress)
-await new Promise(resolve => setTimeout(resolve, 1000));
-ress1 = await printer.send("01") 
-console.log("response from sending 01", ress1)
-await new Promise(resolve => setTimeout(resolve, 1000));
 
 
 

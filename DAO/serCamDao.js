@@ -21,17 +21,27 @@ export default class serCam {
         this.queue=queue
     }
     connect() {
-        this.socket = new net.Socket();
-        this.socket.connect(this.port, this.ip, () => {
-            this.running = true;
-            this.listenerThread = this.listenForResponses();
-            console.log("[Ser Cam] Socket established");
-        });
+        return new Promise((resolve, reject) =>{
+            try {
+                this.socket = new net.Socket();
+                this.socket.connect(this.port, this.ip, () => {
+                    this.running = true;
+                    this.listenerThread = this.listenForResponses();
+                    console.log("[Ser Cam] Socket established");
+                    resolve();
+                });
+        
+                    this.socket.on('error', (err) => {
+                    this.running = false;
+                    reject(`[Ser Cam] Connection error: ${err.message}`);
+                    
+                });
+            } catch (error) {
+                reject(error)
+            }
 
-        this.socket.on('error', (err) => {
-            console.error("[Ser Cam] Connection error:", err);
-            this.running = false;
-        });
+        })
+        
     }
     disconnect() {
         this.running = false;

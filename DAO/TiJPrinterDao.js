@@ -40,17 +40,27 @@ export default class TIJPrinter {
     } 
 
     connect() {
-        this.socket = new net.Socket();
-        this.socket.connect(this.port, this.ip, () => {
-            this.running = true;
-            this.listenerThread = this.listenForResponses();
-            console.log(`[Printer] Socket established on port ${this.port} and IP ${this.ip}`);
-        });
+        return new Promise((res,rej) =>{
+            try {
+                this.socket = new net.Socket();
+                this.socket.connect(this.port, this.ip, () => {
+                this.running = true;
+                this.listenerThread = this.listenForResponses();
+                console.log(`[Printer] Socket established on port ${this.port} and IP ${this.ip}`);
+                res();
+            });
 
-        this.socket.on('error', (err) => {
-            console.error("[Printer] Connection error:", err);
-            this.running = false;
-        });
+                this.socket.on('error', (err) => {
+                this.running = false;
+                rej(new Error (`[Printer] Connection error: ${err}`)) 
+                
+            });
+            } catch (error) {
+                rej(err)
+            }
+            
+        })
+        
     }
 
     listenForResponses() {
@@ -93,13 +103,15 @@ export default class TIJPrinter {
             }
     
             const hexDataToSend = this.ESC + this.STX + this.slaveAddress + hexData + this.ESC + this.EXT;
-           
+            
     
             const hexBytes = Buffer.from(hexDataToSend, 'hex');
             const checksum = this.calculate2sComplementChecksum(hexBytes);
             const hexBytesWithChecksum = Buffer.concat([hexBytes, Buffer.from([checksum])]);
+            
            
             this.socket.write(hexBytesWithChecksum);
+            console.log("HEX : ", hexBytesWithChecksum)
     
             let timeout = setTimeout(() => {
                 reject(`[Printer]Timeout occurred. No response from printer. Sent Command : ${commandName} `); // Reject with error message directly
@@ -108,8 +120,8 @@ export default class TIJPrinter {
             // Event listener for when response is received
             this.responseEvent.once('responseReceived', () => {
                 clearTimeout(timeout);
-                // console.log("Response received:", this.responseBuffer); // Add this line for debugging
-
+                console.log("Reply :", this.responseBuffer); // Add this line for debugging
+                
                 resolve(this.responseBuffer);
 
 

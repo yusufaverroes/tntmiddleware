@@ -28,7 +28,7 @@ const readWeight = async () => {
 
                 port.open(err => {
                     if (err) {
-                        return console.log('Error opening port: ', err.message);
+                        reject ('Error opening port: ', err);
                     }
 
                     // Write data to the port
