@@ -9,7 +9,7 @@ class Initialization {
     this.yellowLed = yellowLed,
     this.greenLed = greenLed,
     this.yellowButton = yellowButton,
-    this.greenButton = greenButton
+    this.greenButton = greenButton,
     this.state = {
       connectingToDB:true,
       connectingToWS:false,
@@ -17,8 +17,7 @@ class Initialization {
       connectingToPrinter:false,
       connectingToSerCam:false,
       weighingScaleCheck:false,
-      rejectorCheck:false,
-      notifyProblem:false
+      rejectorCheck:false
     }
   }
 
@@ -73,13 +72,13 @@ class Initialization {
             this.state.connectingToPrinter = true
           if (retryDelay>0){
               retryDelay = 0;
-              this.yellowButton.blinkingTimes = Infinity;
+              this.yellowLed.blinkingTimes = Infinity;
               this.yellowLed.setState('blinkSlow')
               this.greenLed.setState('blinkSlow')
 
             }
           }catch(err){
-            this.yellowButton.blinkingTimes = 2;
+            this.yellowLed.blinkingTimes = 2;
             this.yellowLed.setState('blinkFast');
             this.greenLed.setState('off');
             console.log('[Init] error occurred: ',err);
@@ -94,13 +93,13 @@ class Initialization {
             this.state.connectingToSerCam = true;
             if (retryDelay>0){
                 retryDelay = 0;
-                this.yellowButton.blinkingTimes = Infinity;
+                this.yellowLed.blinkingTimes = Infinity;
                 this.yellowLed.setState('blinkSlow')
                 this.greenLed.setState('blinkSlow')
 
             }
           }catch(err){
-            this.yellowButton.blinkingTimes = 3;
+            this.yellowLed.blinkingTimes = 3;
             this.yellowLed.setState('blinkFast');
             this.greenLed.setState('off');
             console.log('[Init] error occurred: ',err);
@@ -114,13 +113,13 @@ class Initialization {
           this.rejectorCheck = true;
             if (retryDelay>0){
                 retryDelay = 0;
-                this.yellowButton.blinkingTimes = Infinity;
+                this.yellowLed.blinkingTimes = Infinity;
                 this.yellowLed.setState('blinkSlow')
                 this.greenLed.setState('blinkSlow')
 
             }
         }catch(err){
-          this.yellowButton.blinkingTimes = 5;
+          this.yellowLed.blinkingTimes = 5;
           this.yellowLed.setState('blinkFast');
           this.greenLed.setState('off');
           console.log('[Init] error occurred: ',err);
@@ -129,24 +128,48 @@ class Initialization {
       }else if(this.state.weighingScaleCheck){
         try{
           this.weighingScale.readWeight();
-          this.connectingToSerCam = false;
-          this.rejectorCheck = true;
+          this.state.connectingToSerCam = false;
+          this.state.rejectorCheck = true;
             if (retryDelay>0){
                 retryDelay = 0;
-                this.yellowButton.blinkingTimes = Infinity;
+                this.yellowLed.blinkingTimes = Infinity;
                 this.yellowLed.setState('blinkSlow')
                 this.greenLed.setState('blinkSlow')
 
             }
         }catch(err){
-          this.yellowButton.blinkingTimes = 6;
+          this.yellowLed.blinkingTimes = 6;
           this.yellowLed.setState('blinkFast');
           this.greenLed.setState('off');
           console.log('[Init] error occurred: ',err);
           retryDelay=10;
         }                
       }else if (this.state.rejectorCheck){
-
+        this.yellowLed.setState('on');
+        this.greenLed.setState('off');
+        let greenButtonPressed=false
+        this.greenButton.setShortPressCallback(() => {
+          console.log('Green short press detected.');
+          greenButtonPressed=true
+        });
+        this.yellowButton.setShortPressCallback(async () => {
+          console.log('Yellow short press detected.');
+          await this.rejector.test();
+        });
+        await this.rejector.test();
+        while (!greenButtonPressed){
+          sleep(50)
+        }
+        this.yellowLed.blinkingTimes = 3;
+        this.greenLed.blinkingTimes = 3;
+        this.yellowLed.setState('blinkFast')
+        this.greenLed.setState('blinkFast')
+        this.yellowLed.blinkingTimes = Infinity;
+        this.greenLed.blinkingTimes = Infinity;
+        this.yellowLed.setState('off')
+        this.greenLed.setState('off')
+        this.state.rejectorCheck=false;
+        end=true;
       }
       sleep(retryDelay)
     }

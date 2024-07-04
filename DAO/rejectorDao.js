@@ -57,7 +57,18 @@ export default class Rejection {
             this.running = false; // Set running flag to false when finished
         }
     }
+    async test(){
+
+        this.switch1.setValue(0); // Rejection happens here
+        await sleep(1000); 
+        this.switch1.setValue(1); 
+        await sleep(1000);
+        this.switch1.setValue(0);
+        await sleep(1000); 
+        this.switch1.setValue(1); 
+    }
 }
+
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
