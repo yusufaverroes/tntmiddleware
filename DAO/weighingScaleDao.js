@@ -92,36 +92,50 @@ const readWeight = async () => {
     });
 };
 
-const readPrinterButton = async (button)=>{
-    function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-      }
-      let lastExecutionTime=0;
-      let debounceTime=200;
-      console.log("[Label Printer] button is ready")
-      while (true) {
-        let buttonValue = button.getValue();
-        // console.log(buttonValue)
-        let currentTime = Date.now();
+// const readPrinterButton = async (button)=>{
+//     function sleep(ms) {
+//         return new Promise(resolve => setTimeout(resolve, ms));
+//       }
+//       let lastExecutionTime=0;
+//       let debounceTime=200;
+//       console.log("[Label Printer] button is ready")
+//       while (true) {
+//         let buttonValue = button.getValue();
+//         // console.log(buttonValue)
+//         let currentTime = Date.now();
   
-        if (buttonValue === 1 && (currentTime - lastExecutionTime) >= debounceTime) {
-            try{
-                console.log("[Lable Printer] Label Printer button is pressed.")
-                // const weight = readWeight();
-                // console.log("weight is ", weight)
-                // //send to API
+//         if (buttonValue === 1 && (currentTime - lastExecutionTime) >= debounceTime) {
+//             try{
+//                 console.log("[Lable Printer] Label Printer button is pressed.")
+//                 // const weight = readWeight();
+//                 // console.log("weight is ", weight)
+//                 // //send to API
 
-                await postDataToAPI('v1/work-order/active-job/trigger/weighing',{ 
-                }) 
-                lastExecutionTime = currentTime;
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }catch(err){
-                console.log("[Lable Printer Button] error on : ", err)
-            }
-        }
+//                 await postDataToAPI('v1/work-order/active-job/trigger/weighing',{ 
+//                 }) 
+//                 lastExecutionTime = currentTime;
+//                 await new Promise(resolve => setTimeout(resolve, 1000));
+//             }catch(err){
+//                 console.log("[Lable Printer Button] error on : ", err)
+//             }
+//         }
   
-        await sleep(50);  // Small delay to prevent tight loop
-      }
+//         await sleep(50);  // Small delay to prevent tight loop
+//       }
+      
+// }
+const readPrinterButton =  (button)=>{
+    button.setShortPressCallback(async () => {
+        try{
+            console.log("[Lable Printer] Label Printer button is pressed.")
+            await postDataToAPI('v1/work-order/active-job/trigger/weighing',{ 
+            }) 
+            lastExecutionTime = currentTime;
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }catch(err){
+            console.log("[Lable Printer] error on : ", err)
+        }
+      }); 
 }
 
 export default {readWeight, readPrinterButton};

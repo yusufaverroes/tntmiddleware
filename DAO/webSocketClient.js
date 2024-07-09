@@ -25,11 +25,13 @@ class WebSocketClient {
         });
   
         this.ws.on('error', (error) => {
+          console.log("[Websocket] disconnected")
           this.status = 'disconnected';
           reject(error);
         });
   
         this.ws.on('close', () => {
+          console.log("[Websocket] disconnected")
           this.status = 'disconnected';
         }); 
       } catch (error) {

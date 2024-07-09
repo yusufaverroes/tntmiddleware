@@ -1,4 +1,6 @@
-class Initialization {
+import weighingScaleDao from "./DAO/weighingScaleDao.js";
+
+export default class Initialization {
   constructor(DB,websocket, aggCam, printer, serCam, rejector, yellowLed, greenLed, yellowButton, greenButton ){
     this.MongoDB = DB
     this.websocket = websocket,
@@ -24,15 +26,16 @@ class Initialization {
   async run(){
     let end = false
     let retryDelay =0;
-    function sleep(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
+    function sleep(s) {
+      return new Promise(resolve => setTimeout(resolve, s*1000));
     }
     this.yellowLed.setState('blinkSlow')
     this.greenLed.setState('blinkSlow')
     while (!end){
       if (this.state.connectingToDB){
         try{
-          await mongoDB.connect();
+          await sleep(5)
+          await this.MongoDB.connect();
           this.state.connectingToDB=false;
           this.state.connectingToWS=true;
           if (retryDelay>0){
@@ -50,7 +53,9 @@ class Initialization {
 
       }else if(this.state.connectingToWS){
         try{
-          await wsAggregation.connect()
+          console.log("[Init] connecting to Websocket...")
+          await this.websocket.connect()
+          console.log("[Init] connected to Websocket.")
           this.state.connectingToWS=false
           this.state.connectingToAggCam=true;
           if (retryDelay>0){
@@ -67,6 +72,7 @@ class Initialization {
 
       }else if(this.state.connectingToAggCam){
         try{
+            console.log("[Init] connecting to aggregation camera...")
             await this.aggCam.getStatus();
             this.state.connectingToAggCam = false;
             this.state.connectingToPrinter = true
@@ -78,8 +84,7 @@ class Initialization {
 
             }
           }catch(err){
-            this.yellowLed.blinkingTimes = 2;
-            this.yellowLed.setState('blinkFast');
+            this.yellowLed.setState('blinkFast',2);
             this.greenLed.setState('off');
             console.log('[Init] error occurred: ',err);
             retryDelay=10;
@@ -87,7 +92,7 @@ class Initialization {
             
       }else if(this.state.connectingToPrinter){
         try{
-            this.printer.connect();
+            await this.printer.connect();
 
             this.state.connectingToPrinter = false;
             this.state.connectingToSerCam = true;
@@ -99,16 +104,14 @@ class Initialization {
 
             }
           }catch(err){
-            this.yellowLed.blinkingTimes = 3;
-            this.yellowLed.setState('blinkFast');
+            this.yellowLed.setState('blinkFast', 3);
             this.greenLed.setState('off');
             console.log('[Init] error occurred: ',err);
             retryDelay=10;
           }
       }else if(this.state.connectingToSerCam){
         try{
-          this.serCam.connect();
-          
+          await this.serCam.connect();
           this.connectingToSerCam = false;
           this.rejectorCheck = true;
             if (retryDelay>0){
@@ -119,15 +122,14 @@ class Initialization {
 
             }
         }catch(err){
-          this.yellowLed.blinkingTimes = 5;
-          this.yellowLed.setState('blinkFast');
+          this.yellowLed.setState('blinkFast', 4);
           this.greenLed.setState('off');
           console.log('[Init] error occurred: ',err);
           retryDelay=10;
         }        
       }else if(this.state.weighingScaleCheck){
         try{
-          this.weighingScale.readWeight();
+          await weighingScaleDao.readWeight();
           this.state.connectingToSerCam = false;
           this.state.rejectorCheck = true;
             if (retryDelay>0){
@@ -138,8 +140,7 @@ class Initialization {
 
             }
         }catch(err){
-          this.yellowLed.blinkingTimes = 6;
-          this.yellowLed.setState('blinkFast');
+          this.yellowLed.setState('blinkFast', 5);
           this.greenLed.setState('off');
           console.log('[Init] error occurred: ',err);
           retryDelay=10;
@@ -158,21 +159,24 @@ class Initialization {
         });
         await this.rejector.test();
         while (!greenButtonPressed){
-          sleep(50)
+          await sleep(50)
         }
-        this.yellowLed.blinkingTimes = 3;
-        this.greenLed.blinkingTimes = 3;
-        this.yellowLed.setState('blinkFast')
-        this.greenLed.setState('blinkFast')
+
+        this.yellowLed.setState('blinkFast', 3)
+        this.greenLed.setState('blinkFast', 3)
         this.yellowLed.blinkingTimes = Infinity;
         this.greenLed.blinkingTimes = Infinity;
         this.yellowLed.setState('off')
         this.greenLed.setState('off')
         this.state.rejectorCheck=false;
+        this.aggCam.runAggregateButton();
+        weighingScaleDao.readPrinterButton(this.greenButton);
         end=true;
       }
-      sleep(retryDelay)
+      await sleep(retryDelay)
+      
     }
+    console.log("[Initialisazion] inisialization has been completed")
   }
 
 }

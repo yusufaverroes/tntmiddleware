@@ -13,8 +13,10 @@ import WebSocketClient from './DAO/webSocketClient.js'
 import AggregationCam from './DAO/aggregationCamDao.js'; 
 import KafkaProducer from './DAO/kafka.js';
 import HealthChecks from './DAO/healthCheck.js';
-import weighingScaleDao from './DAO/weighingScaleDao.js'
-import printerTemplate from './utils/printerTemplates.js';
+import Initialization from './init.js'
+import Button from './DAO/buttonDao.js';
+import LED from './DAO/ledDao.js';
+// import printerTemplate from './utils/printerTemplates.js';
 process.on('unhandledRejection', (err) => {
     console.error('Unhandled Promise Rejection:', err);
     // Handle the error gracefully or log it
@@ -42,18 +44,24 @@ const masterConfig = new lowDB('../utils/master-config.json');
   }
 })();
 const mongoDB = new MongoDB(process.env.MONGODB_URI, process.env.DATABASE_NAME) // settiing up mongodb connection
-try{
-  await mongoDB.connect()}
-  catch(err){
-    console.log(err)
-  }
 
 const { version, Chip, Line } = pkg; //setting up GPIOs
 global.chip = new Chip(4)
 global.rejectorActuator = new Line(chip, process.env.REJECTOR_OUTPUT_PIN); rejectorActuator.requestOutputMode();
 global.rejectorSensor = new Line(chip, process.env.REJECTOR_INPUT_PIN); rejectorSensor.requestInputMode();
-global.aggregateButton = new Line(chip, process.env.AGGREGATE_BUTTON_INPUT_PIN); aggregateButton.requestInputMode();
-global.lablePrinterButton = new Line(chip, process.env.LABEL_PRINTER_INPUT_PIN); lablePrinterButton.requestInputMode();
+
+const yellowButton = new Button(process.env.AGGREGATE_BUTTON_INPUT_PIN)
+const greenButton = new Button(process.env.LABEL_PRINTER_INPUT_PIN)
+
+
+const yellowLed = new LED(process.env.AGGREGARTE__BUTTON_LIGHT_OUTPUT_PIN)
+const greenLed = new LED(process.env.LABEL_PRINTER_BUTTON_LIGHT_OUTPUT_PIN)
+
+
+
+
+// global.aggregateButton = new Line(chip, process.env.AGGREGATE_BUTTON_INPUT_PIN); aggregateButton.requestInputMode();
+// global.lablePrinterButton = new Line(chip, process.env.LABEL_PRINTER_INPUT_PIN); lablePrinterButton.requestInputMode();
 rejectorActuator.setValue(1)
 
 const serQueue = new Queue(); // instancing queue class for serialization
@@ -61,73 +69,91 @@ const rejector = new Rejector(rejectorSensor,rejectorActuator, serQueue) //insta
 rejector.start() 
 
 const serialCamera =  new serCam(process.env.SERIALIZATION_CAM_IP,process.env.SERIALIZATION_CAM_PORT,"1",serQueue); //instancing serCam class for serialization Camera
-try{await serialCamera.connect()}catch(err){console.log(err)}
-// console.log(`regexnya : ${JSON.stringify(serialCamera.patterns)}`)
+
+
+
+
+const wsAggregation = new WebSocketClient(process.env.WS_IP, process.env.WS_PORT,"client2") // instancing websocket client class for aggregation
+await wsAggregation.connect()
+
+
+const aggCam = new AggregationCam(wsAggregation, yellowButton)// instancing aggregation cam class using wsAggregation instance
 
 const printer = new TIJPrinter(process.env.TiJPrinter_IP, process.env.TiJPrinter_PORT,process.env.TiJPrinter_SLAVE_ADDRESS,"1")//instancing printer class 
-try{
-  console.log("helllooow")
-  await printer.connect()}catch(err){console.log("Printer connection error",err)}
-await new Promise(resolve => setTimeout(resolve, 500));
 
-const printingProcess = new printProcess(printer, mongoDB.db) // instancing printing process class with printer and mongoDB instances as the constructor
-console.log(`test master : ${printingProcess.templateName}`)
-const wsAggregation = new WebSocketClient(process.env.WS_IP, process.env.WS_PORT,"client2") // instancing websocket client class for aggregation
-try{await wsAggregation.connect()}catch(err){console.log(err)}
-console.log(`[Websocket] status: ${wsAggregation.status}`) 
-
-const aggCam = new AggregationCam(wsAggregation, aggregateButton)// instancing aggregation cam class using wsAggregation instance
-aggCam.runAggregateButton();
 // await kafkaProdHC.connect();
 // const HC = new HealthChecks(printer, serialCamera,aggCam,kafkaProdHC)
 // HC.run()
 // console.log("lewat")
-weighingScaleDao.readPrinterButton(lablePrinterButton);
+
+// const init = new Initialization(mongoDB, wsAggregation, aggCam, printer,serialCamera, rejector, yellowLed,greenLed,yellowButton,greenButton )
+// console.log("Initializing...")
+// await init.run();
+// console.log("Initialization is completed !")
+
+const printingProcess = new printProcess(printer, mongoDB.db) // instancing printing process class with printer and mongoDB instances as the constructor
+console.log(`test master : ${printingProcess.templateName}`)
 export  {printingProcess,printer, serialCamera, serQueue, rejector, masterConfig}  
 startHTTPServer(process.env.SERVER_PORT)
-const details={
-  BN: "TPG12344",
-  MD: "13 JUN 24", 
-  ED: "30 JUN 24",
-  HET: "Rp. 555.55 / BOX"
-};
-
-
-await printer.startPrint()// start print
-await new Promise(resolve => setTimeout(resolve, 1000));
-await printer.clearBuffers() // clear buffer before start printing
-await new Promise(resolve => setTimeout(resolve, 1000));
-
-const msg =printerTemplate['template2'](details,"QR003") 
-
-
-await printer.send(msg)
-await new Promise(resolve => setTimeout(resolve, 1000));
 
 
 
 
 
-await printer.send("1E055152303033")
-
-await new Promise(resolve => setTimeout(resolve, 1000));
-await printer.send("01") 
-// console.log("response from sending 01", ress1)
-await new Promise(resolve => setTimeout(resolve, 1000));
 
 
 
 
 
-await printer.sendRemoteFieldData(['SN 123ABCDEFG123', '(90)123456790567898765678987656789(60)123ABCDEFG123']) // goes to printer buffer
-await new Promise(resolve => setTimeout(resolve, 1000));
 
 
 
-console.log("[Printer] printer is started")
 
 
 
-await new Promise(resolve => setTimeout(resolve, 1000));
+// const details={
+//   BN: "TPG12344",
+//   MD: "13 JUN 24", 
+//   ED: "30 JUN 24",
+//   HET: "Rp. 555.55 / BOX"
+// };
+
+
+// await printer.startPrint()// start print
+// await new Promise(resolve => setTimeout(resolve, 1000));
+// await printer.clearBuffers() // clear buffer before start printing
+// await new Promise(resolve => setTimeout(resolve, 1000));
+
+// const msg =printerTemplate['template2'](details,"QR003") 
+
+
+// await printer.send(msg)
+// await new Promise(resolve => setTimeout(resolve, 1000));
+
+
+
+
+
+// await printer.send("1E055152303033")
+
+// await new Promise(resolve => setTimeout(resolve, 1000));
+// await printer.send("01") 
+// // console.log("response from sending 01", ress1)
+// await new Promise(resolve => setTimeout(resolve, 1000));
+
+
+
+
+
+// await printer.sendRemoteFieldData(['SN 123ABCDEFG123', '(90)123456790567898765678987656789(60)123ABCDEFG123']) // goes to printer buffer
+// await new Promise(resolve => setTimeout(resolve, 1000));
+
+
+
+// console.log("[Printer] printer is started")
+
+
+
+// await new Promise(resolve => setTimeout(resolve, 1000));
 
 
