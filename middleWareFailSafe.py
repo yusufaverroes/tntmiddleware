@@ -2,7 +2,7 @@ import time
 import psutil
 import gpiod as GPIO
 
-GPIO_PIN = 24
+GPIO_PIN = 25
 PROCESS_NAME = 'index.js'
 
 # Initialize GPIO

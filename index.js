@@ -16,6 +16,7 @@ import HealthChecks from './DAO/healthCheck.js';
 import Initialization from './init.js'
 import Button from './DAO/buttonDao.js';
 import LED from './DAO/ledDao.js';
+import printerTemplate from './utils/printerTemplates.js';
 // import printerTemplate from './utils/printerTemplates.js';
 process.on('unhandledRejection', (err) => {
     console.error('Unhandled Promise Rejection:', err);
@@ -45,10 +46,10 @@ const masterConfig = new lowDB('../utils/master-config.json');
 })();
 const mongoDB = new MongoDB(process.env.MONGODB_URI, process.env.DATABASE_NAME) // settiing up mongodb connection
 
+
 const { version, Chip, Line } = pkg; //setting up GPIOs
 global.chip = new Chip(4)
 global.rejectorActuator = new Line(chip, process.env.REJECTOR_OUTPUT_PIN); rejectorActuator.requestOutputMode();
-global.rejectorSensor = new Line(chip, process.env.REJECTOR_INPUT_PIN); rejectorSensor.requestInputMode();
 
 const yellowButton = new Button(process.env.AGGREGATE_BUTTON_INPUT_PIN)
 const greenButton = new Button(process.env.LABEL_PRINTER_INPUT_PIN)
@@ -57,43 +58,35 @@ const greenButton = new Button(process.env.LABEL_PRINTER_INPUT_PIN)
 const yellowLed = new LED(process.env.AGGREGARTE__BUTTON_LIGHT_OUTPUT_PIN)
 const greenLed = new LED(process.env.LABEL_PRINTER_BUTTON_LIGHT_OUTPUT_PIN)
 
+const rejector = new Rejector(rejectorActuator) //instancing Rejector class
 
-
-
-// global.aggregateButton = new Line(chip, process.env.AGGREGATE_BUTTON_INPUT_PIN); aggregateButton.requestInputMode();
-// global.lablePrinterButton = new Line(chip, process.env.LABEL_PRINTER_INPUT_PIN); lablePrinterButton.requestInputMode();
-rejectorActuator.setValue(1)
-
-const serQueue = new Queue(); // instancing queue class for serialization
-const rejector = new Rejector(rejectorSensor,rejectorActuator, serQueue) //instancing Rejector class
-rejector.start() 
-
-const serialCamera =  new serCam(process.env.SERIALIZATION_CAM_IP,process.env.SERIALIZATION_CAM_PORT,"1",serQueue); //instancing serCam class for serialization Camera
+const serialCamera =  new serCam(process.env.SERIALIZATION_CAM_IP,process.env.SERIALIZATION_CAM_PORT, rejector); //instancing serCam class for serialization Camera
 
 
 
 
-const wsAggregation = new WebSocketClient(process.env.WS_IP, process.env.WS_PORT,"client2") // instancing websocket client class for aggregation
-await wsAggregation.connect()
+const AggCamWsData = new WebSocketClient(process.env.WS_IP, process.env.WS_PORT,"client2") // instancing websocket client class for aggregation
+// await AggCamWsData.connect()
+const AggCamWsStatus = new WebSocketClient(process.env.WS_IP, process.env.WS_PORT,"client3") // instancing websocket client class for aggregation
+// await AggCamWsStatus.connect()
 
-
-const aggCam = new AggregationCam(wsAggregation, yellowButton)// instancing aggregation cam class using wsAggregation instance
-
+const aggCam = new AggregationCam(AggCamWsData, AggCamWsStatus, yellowButton)// instancing aggregation cam class using wsAggregation instance
+// console.log(await aggCam.getStatus())
 const printer = new TIJPrinter(process.env.TiJPrinter_IP, process.env.TiJPrinter_PORT,process.env.TiJPrinter_SLAVE_ADDRESS,"1")//instancing printer class 
 
 // await kafkaProdHC.connect();
 // const HC = new HealthChecks(printer, serialCamera,aggCam,kafkaProdHC)
 // HC.run()
-// console.log("lewat")
 
-// const init = new Initialization(mongoDB, wsAggregation, aggCam, printer,serialCamera, rejector, yellowLed,greenLed,yellowButton,greenButton )
-// console.log("Initializing...")
-// await init.run();
-// console.log("Initialization is completed !")
+
+const init = new Initialization(mongoDB, AggCamWsData,AggCamWsStatus, aggCam, printer,serialCamera, rejector, yellowLed,greenLed,yellowButton,greenButton )
+console.log("Initializing...")
+await init.run();
+console.log("Initialization is completed !")
 
 const printingProcess = new printProcess(printer, mongoDB.db) // instancing printing process class with printer and mongoDB instances as the constructor
 console.log(`test master : ${printingProcess.templateName}`)
-export  {printingProcess,printer, serialCamera, serQueue, rejector, masterConfig}  
+export  {printingProcess,printer, serialCamera, rejector, masterConfig}  
 startHTTPServer(process.env.SERVER_PORT)
 
 

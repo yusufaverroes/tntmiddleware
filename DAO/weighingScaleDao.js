@@ -130,7 +130,6 @@ const readPrinterButton =  (button)=>{
             console.log("[Lable Printer] Label Printer button is pressed.")
             await postDataToAPI('v1/work-order/active-job/trigger/weighing',{ 
             }) 
-            lastExecutionTime = currentTime;
             await new Promise(resolve => setTimeout(resolve, 1000));
         }catch(err){
             console.log("[Lable Printer] error on : ", err)

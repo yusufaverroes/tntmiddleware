@@ -77,10 +77,12 @@ export default class TIJPrinter {
 
         this.socket.on('error', (err) => {
             console.error("[Printer] Error listening for responses:", err);
+            this.running = false;
         });
 
         this.socket.on('close', () => {
             console.log("[Printer] Listening stopped");
+            this.running = false;
         });
     }
 

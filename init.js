@@ -1,9 +1,10 @@
 import weighingScaleDao from "./DAO/weighingScaleDao.js";
 
 export default class Initialization {
-  constructor(DB,websocket, aggCam, printer, serCam, rejector, yellowLed, greenLed, yellowButton, greenButton ){
+  constructor(DB,aggCamWsData,aggCamWsStatus, aggCam, printer, serCam, rejector, yellowLed, greenLed, yellowButton, greenButton ){
     this.MongoDB = DB
-    this.websocket = websocket,
+    this.aggCamWsData = aggCamWsData,
+    this.aggCamWsStatus = aggCamWsStatus,
     this.aggCam = aggCam,
     this.printer = printer,
     this.serCam = serCam,
@@ -35,7 +36,10 @@ export default class Initialization {
       if (this.state.connectingToDB){
         try{
           await sleep(5)
-          await this.MongoDB.connect();
+          if (!this.MongoDB.isConnected){
+            await this.MongoDB.connect();
+          }
+          
           this.state.connectingToDB=false;
           this.state.connectingToWS=true;
           if (retryDelay>0){
@@ -53,9 +57,16 @@ export default class Initialization {
 
       }else if(this.state.connectingToWS){
         try{
-          console.log("[Init] connecting to Websocket...")
-          await this.websocket.connect()
-          console.log("[Init] connected to Websocket.")
+          if (this.aggCamWsData.status==='disconnected'){
+            console.log("[Init] connecting to Websocket For data...")
+            await this.aggCamWsData.connect()
+            console.log("[Init] connected to Websocket for data.")
+          }
+          if (this.aggCamWsStatus.status==='disconnected'){
+            console.log("[Init] connecting to Websocket For status...")
+            await this.aggCamWsStatus.connect()
+            console.log("[Init] connected to Websocket for status.")  
+          }
           this.state.connectingToWS=false
           this.state.connectingToAggCam=true;
           if (retryDelay>0){
@@ -73,7 +84,10 @@ export default class Initialization {
       }else if(this.state.connectingToAggCam){
         try{
             console.log("[Init] connecting to aggregation camera...")
-            await this.aggCam.getStatus();
+            if (await this.aggCam.getStatus()==='ok'){
+              console.log("[Init] connected aggregation camera") 
+            }
+            
             this.state.connectingToAggCam = false;
             this.state.connectingToPrinter = true
           if (retryDelay>0){
@@ -92,8 +106,11 @@ export default class Initialization {
             
       }else if(this.state.connectingToPrinter){
         try{
-            await this.printer.connect();
-
+            if (!this.printer.running){
+              console.log("[Init] connecting to printer...")
+              await this.printer.connect();
+              console.log("[Init] connected to printer")
+            }
             this.state.connectingToPrinter = false;
             this.state.connectingToSerCam = true;
             if (retryDelay>0){
@@ -111,9 +128,14 @@ export default class Initialization {
           }
       }else if(this.state.connectingToSerCam){
         try{
-          await this.serCam.connect();
-          this.connectingToSerCam = false;
-          this.rejectorCheck = true;
+          if(!this.serCam.running){
+            console.log("[Init] connecting to serialization camera...")
+            await this.serCam.connect();
+            console.log("[Init] connected to serialization camera")
+          }
+          
+          this.state.connectingToSerCam = false;
+          this.state.weighingScaleCheck = true;
             if (retryDelay>0){
                 retryDelay = 0;
                 this.yellowLed.blinkingTimes = Infinity;
@@ -129,8 +151,10 @@ export default class Initialization {
         }        
       }else if(this.state.weighingScaleCheck){
         try{
+          console.log("[Init] connecting to weighing scale...")
           await weighingScaleDao.readWeight();
-          this.state.connectingToSerCam = false;
+          console.log("[Init] connected to weighing scale")
+          this.state.weighingScaleCheck = false;
           this.state.rejectorCheck = true;
             if (retryDelay>0){
                 retryDelay = 0;
@@ -147,7 +171,7 @@ export default class Initialization {
         }                
       }else if (this.state.rejectorCheck){
         this.yellowLed.setState('on');
-        this.greenLed.setState('off');
+        this.greenLed.setState('on');
         let greenButtonPressed=false
         this.greenButton.setShortPressCallback(() => {
           console.log('Green short press detected.');
@@ -159,19 +183,51 @@ export default class Initialization {
         });
         await this.rejector.test();
         while (!greenButtonPressed){
-          await sleep(50)
+          await sleep(1/10)
         }
-
-        this.yellowLed.setState('blinkFast', 3)
-        this.greenLed.setState('blinkFast', 3)
-        this.yellowLed.blinkingTimes = Infinity;
-        this.greenLed.blinkingTimes = Infinity;
-        this.yellowLed.setState('off')
-        this.greenLed.setState('off')
         this.state.rejectorCheck=false;
-        this.aggCam.runAggregateButton();
-        weighingScaleDao.readPrinterButton(this.greenButton);
-        end=true;
+        greenButtonPressed=false
+        // final checks
+        
+        try {
+          console.log("final checks")
+          if (this.MongoDB.isConnected ){
+            console.log("[Init] MongoDB connection is finalized")
+            
+          }else{throw new Error("MonggoDB")}
+          if (this.aggCamWsData.status==='connected'){
+            console.log("[Init] Aggregation cam. websocoket for data connection is finalized")
+          }else{throw new Error("Aggregation WS for data")}
+          if(this.aggCamWsStatus.status==='connected'){
+            console.log("[Init] Aggregation cam. websocoket for status connection is finalized")
+          }else{throw new Error("Aggregation WS for status")} 
+          if (await this.aggCam.getStatus()==='Ok'){
+            console.log("[Init] Aggregation cam. connection is finalized")
+          }else{throw new Error("Aggregation Camera")}
+          if (this.printer.running){
+            console.log("[Init] Printer connection is finalized")
+          }else{throw new Error("Printer")}
+          if(this.serCam.running){
+            console.log("[Init] Serialization camera connection is finalized")
+          }else{throw new Error("Serialization Camera")}
+                
+                await weighingScaleDao.readWeight();
+                this.yellowLed.setState('blinkFast', 3)
+                this.greenLed.setState('blinkFast', 3)
+                this.state.rejectorCheck=false;
+                this.aggCam.runAggregateButton();
+                weighingScaleDao.readPrinterButton(this.greenButton);
+                
+                end=true;  
+              
+            
+        } catch (error) {
+            this.state.connectingToDB=true;
+            end=false;
+          console.log("[Init] need to re initialize", error)
+        }
+        
+        
       }
       await sleep(retryDelay)
       

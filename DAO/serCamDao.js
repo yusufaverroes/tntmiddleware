@@ -7,18 +7,14 @@ function removeSpacesAndNewlines(inputString) {
 }
 
 export default class serCam {
-    constructor(ip, port, workstationId, queue) {
+    constructor(ip, port, rejector) {
         this.ip = ip;
         this.port = port;
-        this.workstationId = workstationId
         this.running = false;
         this.socket = null;
         this.listenerThread = null;
-        // this.window = [];
-        // this.errorCount = 0;
-        // this.repeatErrorCount = 0; // incase needed
+        this.rejector= rejector;
         this.accuracyThreshold =0.0 // need discussion
-        this.queue=queue
     }
     connect() {
         return new Promise((resolve, reject) =>{
@@ -118,7 +114,9 @@ export default class serCam {
     async receiveData(data) {
         
         const check = this.checkFormat(data)
-        this.queue.enqueue(check.result)
+        if(!check.result){
+            this.rejector.reject();
+        }
         await postDataToAPI(`v1/work-order/${printingProcess.work_order_id}/assignment/${printingProcess.assignment_id}/serialization/validate`,{ 
             accuracy:isNaN(data.accuracy)?0:data.accuracy,
             status:check.result?"passed":"rejected",

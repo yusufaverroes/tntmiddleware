@@ -2,24 +2,31 @@ import { postDataToAPI } from "../API/APICall/apiCall.js";
 import { EventEmitter } from 'events';
 
 class AggregationCam {
-  constructor(webSocketClient, aggButton) {
-    this.webSocketClient = webSocketClient;
+  constructor(wscForData,wscForStatus, aggButton) {
+    this.wscForData = wscForData;
+    this.wscForStatus= wscForStatus;
     this.receivedMessages = [];
-    this.handleMessage = this.handleMessage.bind(this);
     this.aggButton = aggButton;
-    this.webSocketClient.receiveMessage(this.handleMessage);
+
+    this.handleMessageData = this.handleMessageData.bind(this);
+    this.wscForData.receiveMessage(this.handleMessageData);
+
+    // this.handleMessageStatus = this.handleMessageStatus.bind(this);
+    // this.wscForData.receiveMessage(this.handleMessageStatus);
+
     this.responseEvent = new EventEmitter();
+
   }
 
   async getStatus() {
     return new Promise((resolve, reject) => {
-      this.webSocketClient.sendMessage('get_status');
+      this.wscForData.sendMessage('get_status');
 
       let timeout = setTimeout(() => {
         reject(`[Agg. Cam] Timeout occurred. No response from websocket`);
       }, 2000);
 
-      this.webSocketClient.receiveMessage((message) => {
+      this.wscForStatus.receiveMessage((message) => {
         clearTimeout(timeout);
         resolve(message.toString());
       });
@@ -31,7 +38,7 @@ class AggregationCam {
   async getData() {
     return new Promise((resolve, reject) => {
       this.receivedMessages = [];
-      this.webSocketClient.sendMessage('get_data');
+      this.wscForData.sendMessage('get_data');
 
       let timeout = setTimeout(() => {
         reject(`[Agg. Cam] Timeout occurred. No response from websocket`);
@@ -52,7 +59,7 @@ class AggregationCam {
     });
   }
 
-  async handleMessage(message) {
+  async handleMessageData(message) {
     console.log(`[AggCam] incoming message`);
     this.receivedMessages.push(message);
     if (this.receivedMessages.length === 3) {
@@ -105,8 +112,13 @@ class AggregationCam {
     this.aggButton.setShortPressCallback(async () => {
       console.log('[AggCam] Yellow short press detected.');
       this.receivedMessages = [];
-      this.webSocketClient.sendMessage('get_data');
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      try {
+      await getData()
+      // await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error) {
+        console.log("[AggCam] error : ",error)
+      }
+      
     });
   }
 }
