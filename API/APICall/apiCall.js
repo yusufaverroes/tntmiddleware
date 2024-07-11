@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { HttpStatusCode } from 'axios';
 
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
@@ -38,6 +38,21 @@ export async function putDataToAPI(route, data) {
     console.log(`[API Call] Req ID : ${response}, PUT response:`, response.data);
   } catch (error) {
     console.error(`[API Call] Error on PUT data to API : `, error.message);
+    
+  }
+}
+export async function getDataToAPI(route, data) {
+  const url = process.env.API_URL+route
+  console.log("Get req to : ",url)
+  
+  try {
+    const response = await axios.get(url)
+    return  response
+
+  } catch (error) {
+    console.error(`[API Call] Error on GET data to API : `, error.message);
+    
+    return null;
     
   }
 }

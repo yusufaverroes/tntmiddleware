@@ -1,4 +1,6 @@
 import weighingScaleDao from "./DAO/weighingScaleDao.js";
+import { getDataToAPI } from "./API/APICall/apiCall.js";
+import { HttpStatusCode } from "axios";
 
 export default class Initialization {
   constructor(DB,aggCamWsData,aggCamWsStatus, aggCam, printer, serCam, rejector, yellowLed, greenLed, yellowButton, greenButton ){
@@ -38,6 +40,10 @@ export default class Initialization {
           await sleep(5)
           if (!this.MongoDB.isConnected){
             await this.MongoDB.connect();
+          }
+          let res = await getDataToAPI("health-check");
+          if(res==null || res.status!=HttpStatusCode.Ok){
+            throw new Error("Server is not ready")
           }
           
           this.state.connectingToDB=false;
@@ -212,6 +218,11 @@ export default class Initialization {
           }else{throw new Error("Serialization Camera")}
                 
                 await weighingScaleDao.readWeight();
+                let res = await getDataToAPI("health-check");
+                console.log(res.status)
+                if(res==null || res.status!=HttpStatusCode.Ok){
+                  throw new Error("Server is not ready")
+                }
                 this.yellowLed.setState('blinkFast', 3)
                 this.greenLed.setState('blinkFast', 3)
                 this.state.rejectorCheck=false;
