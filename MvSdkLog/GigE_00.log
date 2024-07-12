@@ -9,3 +9,4 @@ Info    2024-07-10 20:48:49  DevID:MV-ID5200M-00C-NNN(02J87632631)  Source-Line:
 Info    2024-07-10 20:48:49  DevID:MV-ID5200M-00C-NNN(02J87632631)  Source-Line:libMVGigEVisionSDK.so(GigEVisionManager.cpp-L1415)     Description:Disconnect device     Solution:
 Info    2024-07-10 20:48:49  DevID:MV-ID5200M-00C-NNN(02J87632631)  Source-Line:libMVGigEVisionSDK.so(GigEVisionMsgChannel.cpp-L0502)     Description:Event thread stop     Solution:
 Info    2024-07-10 20:48:50  DevID:MV-ID5200M-00C-NNN(02J87632631)  Source-Line:libMVGigEVisionSDK.so(GigEVisionGVSP.cpp-L0839)     Description:NearBID[0], LastBID[0], output[0]     Solution:
+jj

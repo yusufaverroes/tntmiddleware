@@ -26,7 +26,7 @@ process.on('unhandledRejection', (err) => {
 // const masterConfig = new lowDB('../utils/master-config.json')
 // await masterConfig.init()
 // console.log(`masterConfigs: ${masterConfig.getAllConfig()}`)
-const kafkaProdHC = new KafkaProducer("middleWare",process.env.KAFKA_BROKER_ENDPOINT)
+// const kafkaProdHC = new KafkaProducer("middleWare",process.env.KAFKA_BROKER_ENDPOINT)
 
 
 const masterConfig = new lowDB('../utils/master-config.json');
@@ -74,9 +74,7 @@ const aggCam = new AggregationCam(AggCamWsData, AggCamWsStatus, yellowButton)// 
 // console.log(await aggCam.getStatus())
 const printer = new TIJPrinter(process.env.TiJPrinter_IP, process.env.TiJPrinter_PORT,process.env.TiJPrinter_SLAVE_ADDRESS,"1")//instancing printer class 
 
-await serialCamera.connect()
-await printer.connect()
-console.log("connected")
+
 
 // await kafkaProdHC.connect();
 // const HC = new HealthChecks(printer, serialCamera,aggCam,kafkaProdHC)
@@ -87,6 +85,10 @@ console.log("connected")
 // console.log("Initializing...")
 // await init.run();
 // console.log("Initialization is completed !")
+
+await printer.connect();
+const inks = await printer.requestInkRemains()
+console.log(inks[0]);
 
 const printingProcess = new printProcess(printer, mongoDB.db) // instancing printing process class with printer and mongoDB instances as the constructor
 console.log(`test master : ${printingProcess.templateName}`)

@@ -43,11 +43,22 @@ export default class TIJPrinter {
         return new Promise((res,rej) =>{
             try {
                 this.socket = new net.Socket();
+                this.socket.setKeepAlive(true, 1000);
                 this.socket.connect(this.port, this.ip, () => {
                 this.running = true;
                 this.listenerThread = this.listenForResponses();
                 console.log(`[Printer] Socket established on port ${this.port} and IP ${this.ip}`);
+                this.socket.on('error', (err) => {
+                    console.error("[Printer] Error listening for responses:", err);
+                    this.running = false;
+                });
+        
+                this.socket.on('close', () => {
+                    console.log("[Printer] Listening stopped");
+                    this.running = false;
+                });
                 res();
+
             });
 
                 this.socket.on('error', (err) => {
@@ -77,7 +88,7 @@ export default class TIJPrinter {
 
         this.socket.on('error', (err) => {
             console.error("[Printer] Error listening for responses:", err);
-            this.running = false;
+            // this.running = false;
         });
 
         this.socket.on('close', () => {

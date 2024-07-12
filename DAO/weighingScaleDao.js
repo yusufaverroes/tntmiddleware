@@ -2,14 +2,22 @@
 import { postDataToAPI } from '../API/APICall/apiCall.js';
 import { SerialPort, ReadlineParser } from 'serialport';
 
+let reading= false;
+let readingError=false;
+function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+          }
 const readWeight = async () => {
     return new Promise(async (resolve, reject) => {
         try {
             const ports = await SerialPort.list();
             let MYport = null;
-
+            // while(reading){
+            //     sleep(50)
+            // }
             ports.forEach(port => {
                 if (port.vendorId === '067b' && port.productId === '23a3') {
+                    reading =true;
                     console.log('Found It');
                     MYport = port.path;
                     console.log(MYport);
@@ -19,7 +27,7 @@ const readWeight = async () => {
             if (MYport) {
                 const port = new SerialPort({
                     path: MYport,
-                    baudRate: 9600,  // Set baudRate as needed
+                    baudRate: 9600,  
                     autoOpen: false
                 });
 
@@ -39,7 +47,7 @@ const readWeight = async () => {
                 let readings = [];
                 const maxReadings = 5;
                 let idx =0;
-
+                let nan=0;
                 // Continuously read data from the port
                 parser.on('data', data => {
                     const weight = parseFloat(data.trim());
@@ -48,9 +56,14 @@ const readWeight = async () => {
                     if (!isNaN(weight)) {
                         readings.push(weight);
                         idx++;
+                    }else{
+                        if(nan>10){
+                            return reject("")
+                        }
+                        nan++;
                     }
                     if (readings.length>0 && Math.abs(readings[idx]-readings[idx-1]) >0.0005){
-                        resolve('unstable') 
+                        return resolve('unstable') 
                     } 
 
 

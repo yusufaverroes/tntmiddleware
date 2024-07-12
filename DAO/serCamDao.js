@@ -20,6 +20,7 @@ export default class serCam {
         return new Promise((resolve, reject) =>{
             try {
                 this.socket = new net.Socket();
+                this.socket.setKeepAlive(true, 1000);
                 this.socket.connect(this.port, this.ip, () => {
                     this.running = true;
                     this.listenerThread = this.listenForResponses();
