@@ -15,29 +15,39 @@ export default class Initialization {
     this.greenLed = greenLed,
     this.yellowButton = yellowButton,
     this.greenButton = greenButton,
+    this.reRun = false;
+    this.firstRun=false;
     this.state = {
-      connectingToDB:true,
+      connectingToDB:false,
       connectingToWS:false,
       connectingToAggCam:false,
       connectingToPrinter:false,
       connectingToSerCam:false,
       weighingScaleCheck:false,
-      rejectorCheck:false
+      rejectorCheck:true,
+      finalChecks:false
     }
   }
-
+  reRun(){
+    // if (!this.reRun){
+    //   this.reRun=true;
+    //   await this.run()
+    //   this.reRun=false;
+    // }
+    console.log("reryuuun")
+  }
   async run(){
     let end = false
     let retryDelay =0;
+    this.serCam.active=false;
     function sleep(s) {
       return new Promise(resolve => setTimeout(resolve, s*1000));
     }
-    this.yellowLed.setState('blinkSlow')
-    this.greenLed.setState('blinkSlow')
+
     while (!end){
+      // await sleep(5)
       if (this.state.connectingToDB){
         try{
-          await sleep(5)
           if (!this.MongoDB.isConnected){
             await this.MongoDB.connect();
           }
@@ -73,6 +83,7 @@ export default class Initialization {
             await this.aggCamWsStatus.connect()
             console.log("[Init] connected to Websocket for status.")  
           }
+          await this.aggCam.setCallBack();
           this.state.connectingToWS=false
           this.state.connectingToAggCam=true;
           if (retryDelay>0){
@@ -90,7 +101,8 @@ export default class Initialization {
       }else if(this.state.connectingToAggCam){
         try{
             console.log("[Init] connecting to aggregation camera...")
-            if (await this.aggCam.getStatus()==='ok'){
+            const AggCamStatus = await this.aggCam.getStatus()
+            if (AggCamStatus==='Ok'){
               console.log("[Init] connected aggregation camera") 
             }
             
@@ -106,7 +118,7 @@ export default class Initialization {
           }catch(err){
             this.yellowLed.setState('blinkFast',2);
             this.greenLed.setState('off');
-            console.log('[Init] error occurred: ',err);
+            console.log('[Init] error occurred1: ',err);
             retryDelay=10;
           }
             
@@ -161,7 +173,7 @@ export default class Initialization {
           await weighingScaleDao.readWeight();
           console.log("[Init] connected to weighing scale")
           this.state.weighingScaleCheck = false;
-          this.state.rejectorCheck = true;
+          this.state.finalChecks = true;
             if (retryDelay>0){
                 retryDelay = 0;
                 this.yellowLed.blinkingTimes = Infinity;
@@ -191,12 +203,18 @@ export default class Initialization {
         while (!greenButtonPressed){
           await sleep(1/10)
         }
+        this.yellowLed.setState('blinkSlow')
+        this.greenLed.setState('blinkSlow')
         this.state.rejectorCheck=false;
-        greenButtonPressed=false
-        // final checks
+        this.state.connectingToDB=true;
+        // greenButtonPressed=false
+      }else if (this.state.finalChecks){
+        
+      // final checks
         
         try {
-          console.log("final checks")
+          console.log("[Init] final checks")
+          await sleep(10)
           if (this.MongoDB.isConnected ){
             console.log("[Init] MongoDB connection is finalized")
             
@@ -217,29 +235,32 @@ export default class Initialization {
             console.log("[Init] Serialization camera connection is finalized")
           }else{throw new Error("Serialization Camera")}
                 
-                await weighingScaleDao.readWeight();
-                let res = await getDataToAPI("health-check");
-                console.log(res.status)
-                if(res==null || res.status!=HttpStatusCode.Ok){
-                  throw new Error("Server is not ready")
-                }
-                this.yellowLed.setState('blinkFast', 3)
-                this.greenLed.setState('blinkFast', 3)
-                this.state.rejectorCheck=false;
-                this.aggCam.runAggregateButton();
-                weighingScaleDao.readPrinterButton(this.greenButton);
-                
-                end=true;  
+          await weighingScaleDao.readWeight();
+          let res = await getDataToAPI("health-check");
+          console.log(res.status)
+          if(res==null || res.status!=HttpStatusCode.Ok){
+            throw new Error("Server is not ready")
+          }
+          this.yellowLed.setState('blinkFast', 3)
+          this.greenLed.setState('blinkFast', 3)
+          this.state.rejectorCheck=false;
+          this.aggCam.runAggregateButton();
+          weighingScaleDao.readPrinterButton(this.greenButton);
+          
+          
+          
+          end=true;  
               
             
         } catch (error) {
-            this.state.connectingToDB=true;
+            this.state.rejectorCheck=true;
             end=false;
+            this.firstRun=true;
           console.log("[Init] need to re initialize", error)
         }
         
-        
       }
+
       await sleep(retryDelay)
       
     }

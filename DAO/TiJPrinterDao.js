@@ -15,6 +15,7 @@ function to16BitHex(value) {
 
 export default class TIJPrinter {
     constructor(ip, port, slaveAddress, workstationId) {
+        this.init=null
         this.printerId = "printer1"
         this.workstationId = workstationId
         this.ip = ip;
@@ -51,11 +52,15 @@ export default class TIJPrinter {
                 this.socket.on('error', (err) => {
                     console.error("[Printer] Error listening for responses:", err);
                     this.running = false;
+                    console.log("init: ",this.init)
+                    this.init?.reRun()
                 });
         
                 this.socket.on('close', () => {
                     console.log("[Printer] Listening stopped");
                     this.running = false;
+                    console.log("init: ",this.init)
+                    this.init?.reRun()
                 });
                 res();
 

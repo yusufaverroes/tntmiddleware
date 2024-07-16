@@ -8,6 +8,7 @@ function removeSpacesAndNewlines(inputString) {
 
 export default class serCam {
     constructor(ip, port, rejector) {
+        this.init=null;
         this.ip = ip;
         this.port = port;
         this.running = false;
@@ -15,6 +16,7 @@ export default class serCam {
         this.listenerThread = null;
         this.rejector= rejector;
         this.accuracyThreshold =0.0 // need discussion
+        this.active=false
     }
     connect() {
         return new Promise((resolve, reject) =>{
@@ -27,9 +29,18 @@ export default class serCam {
                     console.log("[Ser Cam] Socket established");
                     resolve();
                 });
-        
+                    
                     this.socket.on('error', (err) => {
                     this.running = false;
+                    this.active=false;
+                    this.init?.reRun();
+                    reject(`[Ser Cam] Connection error: ${err.message}`)
+                    
+                });
+                this.socket.on('close', (err) => {
+                    this.running = false;
+                    this.active=false;
+                    this.init?.reRun();
                     reject(`[Ser Cam] Connection error: ${err.message}`);
                     
                 });
@@ -115,17 +126,18 @@ export default class serCam {
     async receiveData(data) {
         
         const check = this.checkFormat(data)
-        if(!check.result){
-            this.rejector.reject();
-        }
-        await postDataToAPI(`v1/work-order/${printingProcess.work_order_id}/assignment/${printingProcess.assignment_id}/serialization/validate`,{ 
-            accuracy:isNaN(data.accuracy)?0:data.accuracy,
-            status:check.result?"passed":"rejected",
-            code:data.code,
-            reason:check.reason,
-            event_time:Date.now()
-        }) 
-        
+        if (this.active){
+            if(!check.result){
+                this.rejector.reject();
+            }
+            await postDataToAPI(`v1/work-order/${printingProcess.work_order_id}/assignment/${printingProcess.assignment_id}/serialization/validate`,{ 
+                accuracy:isNaN(data.accuracy)?0:data.accuracy,
+                status:check.result?"passed":"rejected",
+                code:data.code,
+                reason:check.reason,
+                event_time:Date.now()
+            }) 
+    }
     }
         
 }

@@ -12,7 +12,8 @@ class WebSocketClient {
   connect() {
     return new Promise((resolve, reject) => {
       try {
-        const url = `ws://${this.ip}:${this.port}`;
+        const url = this.port===null?this.ip:`ws://${this.ip}:${this.port}`;
+        console.log("[websocket] url :", url)
         const headers = {
           'Client-ID': this.clientId
         };

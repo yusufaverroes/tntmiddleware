@@ -10,10 +10,10 @@ export default class MongoDB {
         this.reconnectTries = options.reconnectTries || 5;
         this.reconnectInterval = options.reconnectInterval || 5000;
 
-        this.client.on('serverClosed', this.handleDisconnect.bind(this));
-        this.client.on('topologyClosed', this.handleDisconnect.bind(this));
-        this.client.on('error', this.handleDisconnect.bind(this));
-        this.client.on('timeout', this.handleDisconnect.bind(this));
+        // this.client.on('serverClosed', this.handleDisconnect.bind(this));
+        // this.client.on('topologyClosed', this.handleDisconnect.bind(this));
+        // this.client.on('error', this.handleDisconnect.bind(this));
+        // this.client.on('timeout', this.handleDisconnect.bind(this));
     }
 
     async connect() {

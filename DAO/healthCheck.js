@@ -14,7 +14,7 @@ export default class HealthChecks{
         // let ip = null;
         // let template_id = null;
         let nozzle_list = [];
-        let message = null;
+        let error_message = null;
     
         switch (peripheral) {
         case 'PRINTER':
@@ -24,11 +24,11 @@ export default class HealthChecks{
                 status = "DISCONNECTED";
             }
             // ip = this.printer.ip;
-            template_id = this.printer.templateName;
+            // template_id = this.printer.templateName;
             try {
                 const ink_level_percentages = await this.printer.requestInkRemains();
                 let idx=0;
-                ink_level_percentages.array.forEach(element => {
+                ink_level_percentages.forEach(element => {
                   nozzle_list.push({
                     nozzle_id:idx,
                     ink_level:element
@@ -36,7 +36,8 @@ export default class HealthChecks{
                   idx++;
                 });
             } catch (err) {
-                message = err;
+                status="ERROR"
+                error_message = err;
             }
             break;
           case 'SER_CAM':
@@ -48,7 +49,8 @@ export default class HealthChecks{
             try{
                 status = await this.aggCam.getStatus()
             }catch(err){
-                message = err;
+                status = "ERROR"
+                error_message = err;
             }
             // ip = this.aggCam.webSocketClient.ip
             break;
@@ -61,8 +63,8 @@ export default class HealthChecks{
           status,
           // ip,
           // template_id,
-          ink_level_percentage,
-          message
+          nozzle_list,
+          error_message
         };
       }
       // async sendToKafka(peripheral) {
@@ -95,24 +97,21 @@ export default class HealthChecks{
           case : "HEALTH_CHECK",
           action: "HEALTH_CHECKING",
           message_code: "INFO_MIDDLEWARE_HEALTHCHECK",
-          message_type: 1,
+          message_type: "SUCCESS",
           message:"success",
           data : {
               printer:{
                 status : printer.status,
-                nozzle_list :[
-                  {
-                    nozzle_id: int,
-                    ink_level: number
-                  }
-                
-                ]
+                nozzle_list :printer.nozzle_list,
+                error_message: printer.error_message
               },
               aggregation_cam : {
-                status: aggCam.status
+                status: aggCam.status,
+                error_message: aggCam.error_message
               },
               serialization_cam : {
-                status: serCam.status	
+                status: serCam.status	,
+                error_message: serCam.error_message
               }
               
             }
@@ -140,6 +139,9 @@ export default class HealthChecks{
         setInterval(() => this.sendToWS(), this.checkInterval);
         // setInterval(() => this.sendToWS('SER_CAM'), this.checkInterval);
         // setInterval(() => this.sendToWS('AGG_CAM'), this.checkInterval);
+      }
+      handleMessageData(message){
+        console.log("[Health Check] got response : ", message)
       }
     }
     
