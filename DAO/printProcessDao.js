@@ -261,7 +261,7 @@ export default class printProcess {
                     console.log("[Printer Process] - Failed sending buffer to printer, ", err);
                     await this.db.collection('serialization')
                      .updateOne( { _id: serialization.id}, 
-                    { $set: { status : "ErrorOccured"} } // update the status of the printed code upon pusing to buffer 
+                    { $set: { status : "ERROR_OCCURED"} } // update the status of the printed code upon pusing to buffer 
                     )
                 }       
                 if (P_status === "no errors" || P_status ==="now full" || P_status==="full attempt to send" || P_status==="failed to updated to DB") {

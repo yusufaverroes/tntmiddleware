@@ -93,7 +93,7 @@ class AggregationCam {
     }
   }
   async handleMessageStatus(message) {
-    console.log("Status received")
+    // console.log("Status received")
     this.responseEvent1.emit('responseReceived')
     this.status=message.toString();
 

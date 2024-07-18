@@ -7,7 +7,7 @@ export default class HealthChecks{
         this.webSocketClient = webSocketClient
         this.handleMessageData = this.handleMessageData.bind(this);
         this.webSocketClient.receiveMessage(this.handleMessageData);
-        this.checkInterval = 5000 //five secs
+        this.checkInterval = 15000 //five secs
     }
       async getStatus(peripheral) {
         let status = null;
@@ -31,13 +31,13 @@ export default class HealthChecks{
                 ink_level_percentages.forEach(element => {
                   nozzle_list.push({
                     nozzle_id:idx,
-                    ink_level:element
+                    ink_level_percentage:element
                   })
                   idx++;
                 });
             } catch (err) {
                 status="ERROR"
-                error_message = err;
+                error_message = err.message;
             }
             break;
           case 'SER_CAM':
@@ -50,7 +50,7 @@ export default class HealthChecks{
                 status = await this.aggCam.getStatus()
             }catch(err){
                 status = "ERROR"
-                error_message = err;
+                error_message = err.message;
             }
             // ip = this.aggCam.webSocketClient.ip
             break;

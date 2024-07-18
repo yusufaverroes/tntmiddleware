@@ -98,6 +98,8 @@ const init = new Initialization(mongoDB, AggCamWsData,AggCamWsStatus, aggCam, pr
 console.log("Initializing...")
 await init.run();
 printer.init=init;
+aggCam.init=init;
+serialCamera.init=init;
 console.log("Initialization is completed !")
 
 
@@ -110,9 +112,9 @@ const printingProcess = new printProcess(printer, mongoDB.db) // instancing prin
 console.log(`test master : ${printingProcess.templateName}`)
 
 const healthChecks = new HealthChecks(printer, serialCamera,aggCam, healthChecksWs);
-// await healthChecksWs.connect();
+await healthChecksWs.connect();
 
-// healthChecks.run()
+healthChecks.run()
 export  {printingProcess,printer, serialCamera, rejector, masterConfig}  
 startHTTPServer(process.env.SERVER_PORT)
 

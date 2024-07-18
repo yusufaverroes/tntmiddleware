@@ -29,7 +29,6 @@ export default class serCam {
                     console.log("[Ser Cam] Socket established");
                     resolve();
                 });
-                    
                     this.socket.on('error', (err) => {
                     this.running = false;
                     this.active=false;

@@ -15,7 +15,7 @@ export default class Initialization {
     this.greenLed = greenLed,
     this.yellowButton = yellowButton,
     this.greenButton = greenButton,
-    this.reRun = false;
+    this.reRunning = false;
     this.firstRun=false;
     this.state = {
       connectingToDB:false,
@@ -28,13 +28,15 @@ export default class Initialization {
       finalChecks:false
     }
   }
-  reRun(){
-    // if (!this.reRun){
-    //   this.reRun=true;
-    //   await this.run()
-    //   this.reRun=false;
-    // }
-    console.log("reryuuun")
+  async reRun(){
+    if (!this.reRunning){
+      this.reRunning=true;
+      this.state.rejectorCheck=false;
+      this.state.connectingToDB=true;
+      await this.run()
+      this.reRunning=false;
+    }
+    
   }
   async run(){
     let end = false

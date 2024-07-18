@@ -29,6 +29,7 @@ export default class TIJPrinter {
         this.responseBuffer = null;
         this.isOccupied = false;
         this.printCallback=null
+        this.noResponseCount=0;
         
 
         this.ESC = '1B';
@@ -49,28 +50,24 @@ export default class TIJPrinter {
                 this.running = true;
                 this.listenerThread = this.listenForResponses();
                 console.log(`[Printer] Socket established on port ${this.port} and IP ${this.ip}`);
-                this.socket.on('error', (err) => {
+                 res();
+
+                 });
+
+                 this.socket.on('error', (err) => {
                     console.error("[Printer] Error listening for responses:", err);
                     this.running = false;
-                    console.log("init: ",this.init)
-                    this.init?.reRun()
+                    // this.init?.reRun()
+                    rej(new Error (`[Printer] Connection error: ${err}`)) 
                 });
         
-                this.socket.on('close', () => {
+                this.socket.on('close', (err) => {
                     console.log("[Printer] Listening stopped");
                     this.running = false;
-                    console.log("init: ",this.init)
-                    this.init?.reRun()
+                    // this.init?.reRun()
+                    rej(new Error (`[Printer] Connection error: ${err}`)) 
                 });
-                res();
-
-            });
-
-                this.socket.on('error', (err) => {
-                this.running = false;
-                rej(new Error (`[Printer] Connection error: ${err}`)) 
-                
-            });
+      
             } catch (error) {
                 rej(err)
             }
@@ -129,16 +126,24 @@ export default class TIJPrinter {
             
            
             this.socket.write(hexBytesWithChecksum);
-            console.log("HEX : ", hexBytesWithChecksum)
+            // console.log("HEX : ", hexBytesWithChecksum) //uncomment this for debugging
     
             let timeout = setTimeout(() => {
-                reject(`[Printer]Timeout occurred. No response from printer. Sent Command : ${commandName} `); // Reject with error message directly
-            }, 2500);
+                this.noResponseCount++;
+                if(this.noResponseCount>=3 && this.running===true){
+                    console.log("too many no responses")
+                    this.running=false
+                    this.init?.reRun();
+                    this.noResponseCount=0;
+                }
+                reject(`Timeout occurred. No response from printer. Sent Command : ${commandName} `); // Reject with error message directly
+            }, 1500);
     
             // Event listener for when response is received
             this.responseEvent.once('responseReceived', () => {
                 clearTimeout(timeout);
-                console.log("Reply :", this.responseBuffer); // Add this line for debugging
+                // console.log("Reply :", this.responseBuffer); // Add this line for debugging
+                this.noResponseCount=0;
                 
                 resolve(this.responseBuffer);
 
