@@ -22,7 +22,8 @@ function formatDate(date) {
 function formatCurrencyIDR(amount, locale = 'id-ID') {
     return new Intl.NumberFormat(locale, {
         style: 'currency',
-        currency: 'IDR'
+        currency: 'IDR',
+        maximumFractionDigits: 0,
     }).format(amount);
 }
 import Queue from '../utils/queue.js';
@@ -58,13 +59,16 @@ export default class printProcess {
             if (!product) {
                 throw new Error(`Product ID ${this.product_id} not found `);
             }
+
+            console.log(JSON.stringify(work_order))
     
             return {
                 NIE: product.nie,
                 BN: work_order.batch_no,
                 MD: formatDate(work_order.manufacture_date), 
                 ED: formatDate(work_order.expiry_date),
-                HET: formatCurrencyIDR(product.het)
+                HET: product.het.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'),
+                UNIT:work_order.unit_per_box
             };
         } catch (err) {
             console.error('Error getting code details:', err);
@@ -132,6 +136,7 @@ export default class printProcess {
     }
     async printSetupChecks() {
         try {
+            this.full_code_queue.clear();
             this.details = null
             this.details = await this.getCodeDetails(this.db)
             if (this.details===null){
@@ -190,7 +195,7 @@ export default class printProcess {
         }
     }
 
-    async print(){ // TODO: stoping logic after completing job (Done)
+    async print(){ 
         let delayTime=2500; // initial delay time
         let fistPrintedFlag=false; //flag for telling that a first object has been printed
         let filledBufNum=0;
@@ -307,6 +312,7 @@ export default class printProcess {
                 await this.printer.clearBuffers()
                 this.printer.isOccupied=false
                 console.log(`[Printing Process] printing process with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id} is completed! $`)
+                this.printer.stopPrint();
                 await postDataToAPI('v1/work-order/active-job/complete-print',{})
             }
             if (P_status==="still full" || P_status==="now full")

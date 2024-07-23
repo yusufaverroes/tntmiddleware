@@ -2,7 +2,7 @@ import weighingScaleDao from "../../../../DAO/weighingScaleDao.js";
 
 const getWeight = async (req,res) =>{
     try{
-        const weight= await weighingScaleDao.readWeight();
+        let weight= await weighingScaleDao.readWeight();
         for (let i =0 ; i<3;i++){
              weight = await weighingScaleDao.readWeight();
             

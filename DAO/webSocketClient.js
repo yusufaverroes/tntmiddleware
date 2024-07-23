@@ -28,6 +28,7 @@ class WebSocketClient {
         this.ws.on('error', (error) => {
           console.log("[Websocket] disconnected")
           this.status = 'disconnected';
+          
           reject(error);
         });
   

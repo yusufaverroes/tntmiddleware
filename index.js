@@ -50,12 +50,13 @@ const mongoDB = new MongoDB(process.env.MONGODB_URI, process.env.DATABASE_NAME) 
 const { version, Chip, Line } = pkg; //setting up GPIOs
 global.chip = new Chip(4)
 global.rejectorActuator = new Line(chip, process.env.REJECTOR_OUTPUT_PIN); rejectorActuator.requestOutputMode();
-
+global.rizalLED = new Line(chip, process.env.AGGREGARTE_LIGHT_OUTPUT_PIN); rizalLED.requestOutputMode();
+rizalLED.setValue(0);
 const yellowButton = new Button(process.env.AGGREGATE_BUTTON_INPUT_PIN)
 const greenButton = new Button(process.env.LABEL_PRINTER_INPUT_PIN)
 
 
-const yellowLed = new LED(process.env.AGGREGARTE__BUTTON_LIGHT_OUTPUT_PIN)
+const yellowLed = new LED(process.env.AGGREGARTE_BUTTON_LIGHT_OUTPUT_PIN)
 const greenLed = new LED(process.env.LABEL_PRINTER_BUTTON_LIGHT_OUTPUT_PIN)
 
 const rejector = new Rejector(rejectorActuator) //instancing Rejector class
@@ -92,6 +93,7 @@ const printer = new TIJPrinter(process.env.TiJPrinter_IP, process.env.TiJPrinter
 // await kafkaProdHC.connect();
 // const HC = new HealthChecks(printer, serialCamera,aggCam,kafkaProdHC)
 // HC.run()
+
 
 
 const init = new Initialization(mongoDB, AggCamWsData,AggCamWsStatus, aggCam, printer,serialCamera, rejector, yellowLed,greenLed,yellowButton,greenButton )

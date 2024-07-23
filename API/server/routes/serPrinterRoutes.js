@@ -8,6 +8,8 @@ export default function printRoutes(app) {
         .post(printProcessController.startPrinting)
     app.route("/v1/printer/stop")
         .post(printProcessController.stopPrinting)
+    app.route("/v1/printer/toggletonotreceive")
+        .post(printProcessController.toggleToNotReceive)
 
 
 }

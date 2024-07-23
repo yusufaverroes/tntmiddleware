@@ -1,21 +1,42 @@
 
-import  {printingProcess, printer} from '../../../../index.js';
+import  {printingProcess, printer,serialCamera} from '../../../../index.js';
 import printerTemplate from '../../../../utils/printerTemplates.js';
+
 
 
 
 const stopPrinting = async (req, res) => {
     printer.isOccupied=false;
-    // printingProcess.full_code_queue.clear();
-    await printer.send(12)
+    try {
+        // printingProcess.full_code_queue.clear();
+        await printer.send(12)
+        console.log("printer is successfully stopped by the BE")
+        res.status(200).send({message:"printer is successfully stopped"})
+    } catch (err) {
+        res.status(500).send({error:err})
+    }
+
     // await printer.send(21)
-    console.log("printer is successfully stopped by the BE")
-    res.status(200).send({message:"printer is successfully stopped"})
+
+}
+
+const toggleToNotReceive = async (req, res) =>{
+    printer.notReceiving=!printer.notReceiving
+    console.log("not receiving set to be ", printer.notReceiving)
+    res.status(200).send({simulating:printer.notReceiving})
 }
 
 const startPrinting = async (req, res) => {
     let missingBody=""
     console.log("start printing called by BE")
+    if(req.body.threshold ){
+        if(typeof req.body.threshold  !== 'number' || isNaN(req.body.threshold)){
+            throw new Error ("threshold value must be a number")
+        
+    }else{
+        serialCamera.accuracyThreshold=req.body.threshold
+    }
+    }
     if(req.body.work_order_id){
         printingProcess.work_order_id = req.body.work_order_id
     }else{missingBody="work_order_id"}
@@ -56,4 +77,4 @@ const startPrinting = async (req, res) => {
 
 
 
-export default {startPrinting, stopPrinting}
+export default {startPrinting, stopPrinting, toggleToNotReceive}

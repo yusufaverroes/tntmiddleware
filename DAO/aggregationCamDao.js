@@ -38,9 +38,10 @@ class AggregationCam {
       
       let timeout = setTimeout(() => {
         reject(`[Agg. Cam] Timeout occurred. No response from websocket`);
+        this.init?.reRun();
       }, 2000);
       this.responseEvent1.once('responseReceived', () => {
-        console.log("event received")
+        // console.log("event received")
         clearTimeout(timeout); 
         console.log(this.status)
         if(this.status!='Ok'){

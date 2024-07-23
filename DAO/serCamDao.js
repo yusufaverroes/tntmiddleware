@@ -25,6 +25,7 @@ export default class serCam {
                 this.socket.setKeepAlive(true, 1000);
                 this.socket.connect(this.port, this.ip, () => {
                     this.running = true;
+                    this.active = true; 
                     this.listenerThread = this.listenForResponses();
                     console.log("[Ser Cam] Socket established");
                     resolve();
@@ -116,6 +117,7 @@ export default class serCam {
                 reason = "PATTERN_MISMATCH"
             }
             console.log(`[Ser Cam] Data is in bad format or ERROR: ${reason} on scanned code: ${code}`);
+            result = false;
             
         }
 
@@ -125,7 +127,7 @@ export default class serCam {
     async receiveData(data) {
         
         const check = this.checkFormat(data)
-        if (this.active){
+        
             if(!check.result){
                 this.rejector.reject();
             }
@@ -136,7 +138,7 @@ export default class serCam {
                 reason:check.reason,
                 event_time:Date.now()
             }) 
-    }
+    
     }
         
 }

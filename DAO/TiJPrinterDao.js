@@ -30,6 +30,10 @@ export default class TIJPrinter {
         this.isOccupied = false;
         this.printCallback=null
         this.noResponseCount=0;
+        this.sendingQueue=[];
+        this.sendingLock=false;
+
+        this.notReceiving=false;
         
 
         this.ESC = '1B';
@@ -81,6 +85,7 @@ export default class TIJPrinter {
             if (response) {
                 if (this.isSolicitedResponse(response)) {
                     this.responseBuffer = response;
+                    
                     this.responseEvent.emit('responseReceived');
                 } else {
                     this.handleUnsolicitedResponse(response);
@@ -110,10 +115,36 @@ export default class TIJPrinter {
 
     }
 
-    send(hexData, commandName="") {
+    //  _processQueue() {
+    //     if (this.sendingQueue.length > 0) {
+    //       const { data, commandName, resolve, reject } = this.printingQueue.shift();
+    //       this.send(data, commandName).then(resolve).catch(reject);
+    //     }
+    //   }
+    // async send(data, commandName=""){
+    //     if (this.sendingLock) {
+    //         return new Promise((resolve, reject) => {
+    //           this.sendingQueue.push({ data, commandName, resolve, reject });
+    //         });
+    //       }
+    //     this.sendingLock=true;
+    //     try {
+    //         const feedBack = await this._send(data, commandName);
+    //         return feedBack;
+    //       } catch (error) {
+    //         throw new Error(error);
+    //       } finally {
+    //         this.sendingLock = false;
+    //         this._processQueue();
+    //       }
+    // }
+
+    send(hexData, commandName) {
         return new Promise((resolve, reject) => {
             if (!this.running) {
                 reject("[Printer] Not connected to a printer"); // Reject with error message directly
+                this.init?.reRun();
+                this.running=false;
                 return;
             }
     
@@ -284,6 +315,10 @@ export default class TIJPrinter {
             
                 
                     const response = await this.send(data, "Download Remote Field Data(1D)");
+                    
+                    if(this.notReceiving){
+                        throw new Error("Timeout occurred. No response from printer. Sent Command : Download Remote Field Data(1D)")
+                    }
                     if (response[1] === 0x06) {
                         let P_status;
                         switch (response[3]) {

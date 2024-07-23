@@ -1,13 +1,15 @@
+import weighingScaleDao from "./weighingScaleDao.js"
 
 export default class HealthChecks{
     constructor(printer, serCam, aggCam, webSocketClient ){
+        
         this.printer = printer
         this.serCam = serCam
         this.aggCam = aggCam
         this.webSocketClient = webSocketClient
         this.handleMessageData = this.handleMessageData.bind(this);
         this.webSocketClient.receiveMessage(this.handleMessageData);
-        this.checkInterval = 15000 //five secs
+        this.checkInterval = 5000 //five secs
     }
       async getStatus(peripheral) {
         let status = null;
@@ -54,6 +56,15 @@ export default class HealthChecks{
             }
             // ip = this.aggCam.webSocketClient.ip
             break;
+          case 'WEIGHING_SCALE':
+            try {
+              await weighingScaleDao.readWeight()
+              status= "OK"
+            } catch (error) {
+              status = "ERROR"
+              error_message = error.message;
+            }
+            break;
     
           default:
             throw new Error(`[Health Checks] Unknown peripheral: ${peripheral}`);
@@ -93,6 +104,8 @@ export default class HealthChecks{
         const printer = await this.getStatus("PRINTER");
         const serCam = await this.getStatus("SER_CAM");
         const aggCam = await this.getStatus("AGG_CAM");
+        const weighingScale = await this.getStatus("WEIGHING_SCALE")
+        
         const payload = {
           case : "HEALTH_CHECK",
           action: "HEALTH_CHECKING",
@@ -112,13 +125,17 @@ export default class HealthChecks{
               serialization_cam : {
                 status: serCam.status	,
                 error_message: serCam.error_message
+              },
+              weighing_scale : {
+                status: weighingScale.status,
+                error_message: weighingScale.error_message
               }
               
             }
               
           
           }
-        console.log(payload)
+        // console.log(payload)
         const message = JSON.stringify(payload);
     
         try {

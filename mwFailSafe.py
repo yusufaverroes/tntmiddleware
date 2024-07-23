@@ -1,6 +1,24 @@
 import gpiod as GPIO
 import subprocess
 import time
+import os
+
+pipe_path = '/tmp/middleware-failsafe-pipe'
+
+if not os.path.exists(pipe_path):
+    print(f'Pipe {pipe_path} does not exist.')
+## TO DO: make cleaning pipe logic 
+# with open(pipe_path, 'r') as pipe: # Cleaning up the pipe
+#     message = pipe.read()
+    
+#     while(message):
+#         message = pipe.read()
+#         time.sleep(1)
+#     pass
+    
+    
+
+
 
 # Define the GPIO pin and chip number
 GPIO_PIN = 25
@@ -11,6 +29,8 @@ gpio_line = chip.get_line(GPIO_PIN)
 gpio_line.request(consumer="LED", type=GPIO.LINE_REQ_DIR_OUT)
 # Initial status (None indicates we haven't checked yet)
 previous_status = None
+
+
 
 def check_middleware_status():
     try:
@@ -28,30 +48,38 @@ def check_middleware_status():
 
 def set_gpio_signal(is_running):
     if is_running:
-        # Apply low signal if middleware is running
+        # Apply low signal if middleware is running (activate printer sensor)
         print("Middle Ware is normal")
         gpio_line.set_value(0)
         
     else:
-        # Apply high signal if middleware is not running
+        # Apply high signal if middleware is not running (deactivate printer sensor)
         print("Something bad is occured on middleware")
         gpio_line.set_value(1)
         
 
 try:
+    print("failsafe is started")
     while True:
         middleware_running = check_middleware_status()
-        
         # Only change GPIO signal if status has changed
         if middleware_running != previous_status:
             set_gpio_signal(middleware_running)
             previous_status = middleware_running
-        
-        # Check every 10 seconds
+        with open(pipe_path, 'r') as pipe:
+            message = pipe.read()
+            if message:
+                if message=="on":
+                    gpio_line.set_value(0)
+                    print("sensor is activated by middleware")
+                elif message=="off":
+                    gpio_line.set_value(1)
+                    print("sensor is deactivated by middleware")
+                
         time.sleep(1)
 except KeyboardInterrupt:
     pass
 
 finally:
-    # Clean up GPIO settings
+    # Clean up GPIO 
     gpio_line.release()

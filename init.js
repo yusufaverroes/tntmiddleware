@@ -1,7 +1,8 @@
 import weighingScaleDao from "./DAO/weighingScaleDao.js";
 import { getDataToAPI } from "./API/APICall/apiCall.js";
 import { HttpStatusCode } from "axios";
-
+import fs from 'fs';
+const pipePath = '/tmp/middleware-failsafe-pipe'
 export default class Initialization {
   constructor(DB,aggCamWsData,aggCamWsStatus, aggCam, printer, serCam, rejector, yellowLed, greenLed, yellowButton, greenButton ){
     this.MongoDB = DB
@@ -40,6 +41,27 @@ export default class Initialization {
   }
   async run(){
     let end = false
+    fs.open(pipePath, 'w', (err, fd) => {
+      if (err) {
+        console.error('Failed to open named pipe:', err);
+        return;
+      }
+    
+      fs.write(fd, 'off', (err) => {
+        if (err) {
+          console.error('Failed to write to named pipe:', err);
+        } else {
+          console.log('Message sent: off');
+        }
+    
+        fs.close(fd, (err) => {
+          if (err) {
+            console.error('Failed to close named pipe:', err);
+          }
+        });
+      });
+    });
+    
     let retryDelay =0;
     this.serCam.active=false;
     function sleep(s) {
@@ -248,7 +270,27 @@ export default class Initialization {
           this.state.rejectorCheck=false;
           this.aggCam.runAggregateButton();
           weighingScaleDao.readPrinterButton(this.greenButton);
+          fs.open(pipePath, 'w', (err, fd) => {
+            if (err) {
+              console.error('Failed to open named pipe:', err);
+              return;
+            }
           
+            fs.write(fd, 'on', (err) => {
+              if (err) {
+                console.error('Failed to write to named pipe:', err);
+              } else {
+                console.log('Message sent: on');
+              }
+          
+              fs.close(fd, (err) => {
+                if (err) {
+                  console.error('Failed to close named pipe:', err);
+                }
+              });
+            });
+          });
+      
           
           
           end=true;  
