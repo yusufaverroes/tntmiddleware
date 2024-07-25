@@ -1,0 +1,314 @@
+import weighingScaleDao from "./DAO/weighingScaleDao.js";
+import { getDataToAPI } from "./API/APICall/apiCall.js";
+import { HttpStatusCode } from "axios";
+import fs from 'fs';
+const pipePath = '/tmp/middleware-failsafe-pipe'
+export default class Initialization {
+  constructor(DB,aggCamWsData,aggCamWsStatus, aggCam, printer, serCam, rejector, yellowLed, greenLed, yellowButton, greenButton ){
+    this.MongoDB = DB
+    this.aggCamWsData = aggCamWsData,
+    this.aggCamWsStatus = aggCamWsStatus,
+    this.aggCam = aggCam,
+    this.printer = printer,
+    this.serCam = serCam,
+    this.rejector = rejector,
+    this.yellowLed = yellowLed,
+    this.greenLed = greenLed,
+    this.yellowButton = yellowButton,
+    this.greenButton = greenButton,
+    this.reRunning = false;
+    this.firstRun=false;
+    this.state = {
+      connectingToDB:false,
+      connectingToWS:false,
+      connectingToAggCam:false,
+      connectingToPrinter:false,
+      connectingToSerCam:false,
+      weighingScaleCheck:false,
+      rejectorCheck:true,
+      finalChecks:false
+    }
+  }
+  async reRun(){
+    if (!this.reRunning){
+      this.reRunning=true;
+      this.state.rejectorCheck=false;
+      this.state.connectingToDB=true;
+      await this.run()
+      this.reRunning=false;
+    }
+    
+  }
+  async run(){
+    let end = false
+    fs.open(pipePath, 'w', (err, fd) => {
+      if (err) {
+        console.error('Failed to open named pipe:', err);
+        return;
+      }
+    
+      fs.write(fd, 'off', (err) => {
+        if (err) {
+          console.error('Failed to write to named pipe:', err);
+        } else {
+          console.log('Message sent: off');
+        }
+    
+        fs.close(fd, (err) => {
+          if (err) {
+            console.error('Failed to close named pipe:', err);
+          }
+        });
+      });
+    });
+    
+    let retryDelay =0;
+    this.serCam.active=false;
+    function sleep(s) {
+      return new Promise(resolve => setTimeout(resolve, s*1000));
+    }
+
+    while (!end){
+      // await sleep(5)
+      if (this.state.connectingToDB){
+        try{
+          if (!this.MongoDB.isConnected){
+            await this.MongoDB.connect();
+          }
+          let res = await getDataToAPI("health-check");
+          if(res==null || res.status!=HttpStatusCode.Ok){
+            throw new Error("Server is not ready")
+          }
+          
+          this.state.connectingToDB=false;
+          this.state.connectingToWS=true;
+          if (retryDelay>0){
+            retryDelay = 0;
+            this.yellowLed.setState('blinkSlow')
+            this.greenLed.setState('blinkSlow')
+          }
+          
+        }catch(err){
+          this.yellowLed.setState('blinkFast')
+          this.greenLed.setState('blinkFast')
+          console.log('[Init] error occurred: ',err)
+          retryDelay=5;
+        }
+
+      }else if(this.state.connectingToWS){
+        try{
+          if (this.aggCamWsData.status==='disconnected'){
+            console.log("[Init] connecting to Websocket For data...")
+            await this.aggCamWsData.connect()
+            console.log("[Init] connected to Websocket for data.")
+          }
+          if (this.aggCamWsStatus.status==='disconnected'){
+            console.log("[Init] connecting to Websocket For status...")
+            await this.aggCamWsStatus.connect()
+            console.log("[Init] connected to Websocket for status.")  
+          }
+          await this.aggCam.setCallBack();
+          this.state.connectingToWS=false
+          this.state.connectingToAggCam=true;
+          if (retryDelay>0){
+            retryDelay = 0;
+            this.yellowLed.setState('blinkSlow')
+            this.greenLed.setState('blinkSlow')
+          }
+        }catch(err){
+          this.yellowLed.setState('blinkFast')
+          this.greenLed.setState('off')
+          console.log('[Init] error occurred: ',err)
+          retryDelay=5;
+        }
+
+      }else if(this.state.connectingToAggCam){
+        try{
+            console.log("[Init] connecting to aggregation camera...")
+            const AggCamStatus = await this.aggCam.getStatus()
+            if (AggCamStatus==='Ok'){
+              console.log("[Init] connected aggregation camera") 
+            }
+            
+            this.state.connectingToAggCam = false;
+            this.state.connectingToPrinter = true
+          if (retryDelay>0){
+              retryDelay = 0;
+              this.yellowLed.blinkingTimes = Infinity;
+              this.yellowLed.setState('blinkSlow')
+              this.greenLed.setState('blinkSlow')
+
+            }
+          }catch(err){
+            this.yellowLed.setState('blinkFast',2);
+            this.greenLed.setState('off');
+            console.log('[Init] error occurred1: ',err);
+            retryDelay=5;
+          }
+            
+      }else if(this.state.connectingToPrinter){
+        try{
+            if (!this.printer.running){
+              console.log("[Init] connecting to printer...")
+              await this.printer.connect();
+              console.log("[Init] connected to printer")
+            }
+            this.state.connectingToPrinter = false;
+            this.state.connectingToSerCam = true;
+            if (retryDelay>0){
+                retryDelay = 0;
+                this.yellowLed.blinkingTimes = Infinity;
+                this.yellowLed.setState('blinkSlow')
+                this.greenLed.setState('blinkSlow')
+
+            }
+          }catch(err){
+            this.yellowLed.setState('blinkFast', 3);
+            this.greenLed.setState('off');
+            console.log('[Init] error occurred: ',err);
+            retryDelay=5;
+          }
+      }else if(this.state.connectingToSerCam){
+        try{
+          if(!this.serCam.running){
+            console.log("[Init] connecting to serialization camera...")
+            await this.serCam.connect();
+            console.log("[Init] connected to serialization camera")
+          }
+          
+          this.state.connectingToSerCam = false;
+          this.state.weighingScaleCheck = true;
+            if (retryDelay>0){
+                retryDelay = 0;
+                this.yellowLed.blinkingTimes = Infinity;
+                this.yellowLed.setState('blinkSlow')
+                this.greenLed.setState('blinkSlow')
+
+            }
+        }catch(err){
+          this.yellowLed.setState('blinkFast', 4);
+          this.greenLed.setState('off');
+          console.log('[Init] error occurred: ',err);
+          retryDelay=5;
+        }        
+      }else if(this.state.weighingScaleCheck){
+        try{
+          console.log("[Init] connecting to weighing scale...")
+          await weighingScaleDao.readWeight();
+          console.log("[Init] connected to weighing scale")
+          this.state.weighingScaleCheck = false;
+          this.state.finalChecks = true;
+            if (retryDelay>0){
+                retryDelay = 0;
+                this.yellowLed.blinkingTimes = Infinity;
+                this.yellowLed.setState('blinkSlow')
+                this.greenLed.setState('blinkSlow')
+
+            }
+        }catch(err){
+          this.yellowLed.setState('blinkFast', 5);
+          this.greenLed.setState('off');
+          console.log('[Init] error occurred: ',err);
+          retryDelay=5;
+        }                
+      }else if (this.state.rejectorCheck){
+        this.yellowLed.setState('on');
+        this.greenLed.setState('on');
+        let greenButtonPressed=false
+        this.greenButton.setShortPressCallback(() => {
+          console.log('Green short press detected.');
+          greenButtonPressed=true
+        });
+        this.yellowButton.setShortPressCallback(async () => {
+          console.log('Yellow short press detected.');
+          await this.rejector.test();
+        });
+        await this.rejector.test();
+        while (!greenButtonPressed){
+          await sleep(1/10)
+        }
+        this.yellowLed.setState('blinkSlow')
+        this.greenLed.setState('blinkSlow')
+        this.state.rejectorCheck=false;
+        this.state.connectingToDB=true;
+        // greenButtonPressed=false
+      }else if (this.state.finalChecks){
+        
+      // final checks
+        
+        try {
+          console.log("[Init] final checks")
+          await sleep(10)
+          if (this.MongoDB.isConnected ){
+            console.log("[Init] MongoDB connection is finalized")
+            
+          }else{throw new Error("MonggoDB")}
+          if (this.aggCamWsData.status==='connected'){
+            console.log("[Init] Aggregation cam. websocoket for data connection is finalized")
+          }else{throw new Error("Aggregation WS for data")}
+          if(this.aggCamWsStatus.status==='connected'){
+            console.log("[Init] Aggregation cam. websocoket for status connection is finalized")
+          }else{throw new Error("Aggregation WS for status")} 
+          if (await this.aggCam.getStatus()==='Ok'){
+            console.log("[Init] Aggregation cam. connection is finalized")
+          }else{throw new Error("Aggregation Camera")}
+          if (this.printer.running){
+            console.log("[Init] Printer connection is finalized")
+          }else{throw new Error("Printer")}
+          if(this.serCam.running){
+            console.log("[Init] Serialization camera connection is finalized")
+          }else{throw new Error("Serialization Camera")}
+                
+          await weighingScaleDao.readWeight();
+          let res = await getDataToAPI("health-check");
+          console.log(res.status)
+          if(res==null || res.status!=HttpStatusCode.Ok){
+            throw new Error("Server is not ready")
+          }
+          this.yellowLed.setState('blinkFast', 3)
+          this.greenLed.setState('blinkFast', 3)
+          this.state.rejectorCheck=false;
+          this.aggCam.runAggregateButton();
+          weighingScaleDao.readPrinterButton(this.greenButton);
+          fs.open(pipePath, 'w', (err, fd) => {
+            if (err) {
+              console.error('Failed to open named pipe:', err);
+              return;
+            }
+          
+            fs.write(fd, 'on', (err) => {
+              if (err) {
+                console.error('Failed to write to named pipe:', err);
+              } else {
+                console.log('Message sent: on');
+              }
+          
+              fs.close(fd, (err) => {
+                if (err) {
+                  console.error('Failed to close named pipe:', err);
+                }
+              });
+            });
+          });
+      
+          
+          
+          end=true;  
+              
+            
+        } catch (error) {
+            this.state.rejectorCheck=true;
+            end=false;
+            this.firstRun=true;
+          console.log("[Init] need to re initialize", error)
+        }
+        
+      }
+
+      await sleep(retryDelay)
+      
+    }
+    console.log("[Initialisazion] inisialization has been completed")
+  }
+
+}
