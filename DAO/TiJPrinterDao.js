@@ -1,7 +1,7 @@
 import net from 'net';
 import { EventEmitter } from 'events';
 import { error } from 'console';
-
+import createCustomLogger from '../utils/logging.js'
 
 
 function to16BitHex(value) {
@@ -35,6 +35,7 @@ export default class TIJPrinter {
 
         this.notReceiving=false;
         
+        this.logger = createCustomLogger("PRINTER")
 
         this.ESC = '1B';
         this.STX = '02';
@@ -54,12 +55,14 @@ export default class TIJPrinter {
                 this.running = true;
                 this.listenerThread = this.listenForResponses();
                 console.log(`[Printer] Socket established on port ${this.port} and IP ${this.ip}`);
+                this.logger.info(`Socket established on port ${this.port} and IP ${this.ip}`);
                  res();
 
                  });
 
                  this.socket.on('error', (err) => {
                     console.error("[Printer] Error listening for responses:", err);
+                    this.logger.error("Error listening for responses:", err);
                     this.running = false;
                     // this.init?.reRun()
                     rej(new Error (`[Printer] Connection error: ${err}`)) 
@@ -67,6 +70,7 @@ export default class TIJPrinter {
         
                 this.socket.on('close', (err) => {
                     console.log("[Printer] Listening stopped");
+                    this.logger.error("Error listening for responses:", err);
                     this.running = false;
                     // this.init?.reRun()
                     rej(new Error (`[Printer] Connection error: ${err}`)) 
@@ -95,12 +99,15 @@ export default class TIJPrinter {
 
         this.socket.on('error', (err) => {
             console.error("[Printer] Error listening for responses:", err);
-            // this.running = false;
+            
+            this.running = false;
+            this.init?.reRun();
         });
 
         this.socket.on('close', () => {
             console.log("[Printer] Listening stopped");
             this.running = false;
+            this.init?.reRun();
         });
     }
 
@@ -163,7 +170,7 @@ export default class TIJPrinter {
                 this.noResponseCount++;
                 if(this.noResponseCount>=3 && this.running===true){
                     console.log("too many no responses")
-                    this.running=false
+                    this.running=false;
                     this.init?.reRun();
                     this.noResponseCount=0;
                 }

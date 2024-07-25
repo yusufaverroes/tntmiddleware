@@ -268,6 +268,7 @@ export default class printProcess {
                      .updateOne( { _id: serialization.id}, 
                     { $set: { status : "ERROR_OCCURED"} } // update the status of the printed code upon pusing to buffer 
                     )
+                    this.full_code_queue.enqueue(serialization.full_code) 
                 }       
                 if (P_status === "no errors" || P_status ==="now full" || P_status==="full attempt to send" || P_status==="failed to updated to DB") {
                     await this.db.collection('serialization')
@@ -312,7 +313,7 @@ export default class printProcess {
                 await this.printer.clearBuffers()
                 this.printer.isOccupied=false
                 console.log(`[Printing Process] printing process with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id} is completed! $`)
-                this.printer.stopPrint();
+                await this.printer.stopPrint();
                 await postDataToAPI('v1/work-order/active-job/complete-print',{})
             }
             if (P_status==="still full" || P_status==="now full")

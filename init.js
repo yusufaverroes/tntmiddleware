@@ -92,7 +92,7 @@ export default class Initialization {
           this.yellowLed.setState('blinkFast')
           this.greenLed.setState('blinkFast')
           console.log('[Init] error occurred: ',err)
-          retryDelay=10;
+          retryDelay=5;
         }
 
       }else if(this.state.connectingToWS){
@@ -119,7 +119,7 @@ export default class Initialization {
           this.yellowLed.setState('blinkFast')
           this.greenLed.setState('off')
           console.log('[Init] error occurred: ',err)
-          retryDelay=10;
+          retryDelay=5;
         }
 
       }else if(this.state.connectingToAggCam){
@@ -143,7 +143,7 @@ export default class Initialization {
             this.yellowLed.setState('blinkFast',2);
             this.greenLed.setState('off');
             console.log('[Init] error occurred1: ',err);
-            retryDelay=10;
+            retryDelay=5;
           }
             
       }else if(this.state.connectingToPrinter){
@@ -166,7 +166,7 @@ export default class Initialization {
             this.yellowLed.setState('blinkFast', 3);
             this.greenLed.setState('off');
             console.log('[Init] error occurred: ',err);
-            retryDelay=10;
+            retryDelay=5;
           }
       }else if(this.state.connectingToSerCam){
         try{
@@ -189,7 +189,7 @@ export default class Initialization {
           this.yellowLed.setState('blinkFast', 4);
           this.greenLed.setState('off');
           console.log('[Init] error occurred: ',err);
-          retryDelay=10;
+          retryDelay=5;
         }        
       }else if(this.state.weighingScaleCheck){
         try{
@@ -209,7 +209,7 @@ export default class Initialization {
           this.yellowLed.setState('blinkFast', 5);
           this.greenLed.setState('off');
           console.log('[Init] error occurred: ',err);
-          retryDelay=10;
+          retryDelay=5;
         }                
       }else if (this.state.rejectorCheck){
         this.yellowLed.setState('on');
