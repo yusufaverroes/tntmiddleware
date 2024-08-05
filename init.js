@@ -2,6 +2,8 @@ import weighingScaleDao from "./DAO/weighingScaleDao.js";
 import { getDataToAPI } from "./API/APICall/apiCall.js";
 import { HttpStatusCode } from "axios";
 import fs from 'fs';
+import Mutex from 'async-mutex'
+const mutex = new Mutex();
 const pipePath = '/tmp/middleware-failsafe-pipe'
 export default class Initialization {
   constructor(DB,aggCamWsData,aggCamWsStatus, aggCam, printer, serCam, rejector, yellowLed, greenLed, yellowButton, greenButton ){
@@ -29,18 +31,22 @@ export default class Initialization {
       finalChecks:false
     }
   }
-  async reRun(){
-    if (!this.reRunning){
-      this.reRunning=true;
-      this.state.rejectorCheck=false;
-      this.state.connectingToDB=true;
-      await this.run()
-      this.reRunning=false;
+  async reRun() {
+    const release = await mutex.acquire();
+    try {
+      if (!this.reRunning) {
+        this.reRunning = true;
+        this.state.rejectorCheck = false;
+        this.state.connectingToDB = true;
+        await this.run();
+        this.reRunning = false;
+      }
+    } finally {
+      release(); // Ensure the mutex is always released
     }
-    
   }
   async run(){
-    let end = false
+    let end = false 
     fs.open(pipePath, 'w', (err, fd) => {
       if (err) {
         console.error('Failed to open named pipe:', err);
