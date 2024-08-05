@@ -9,7 +9,7 @@ export default class HealthChecks{
         this.webSocketClient = webSocketClient
         this.handleMessageData = this.handleMessageData.bind(this);
         this.webSocketClient.receiveMessage(this.handleMessageData);
-        this.checkInterval = 5000 //five secs
+        this.checkInterval = 20000 //five secs
     }
       async getStatus(peripheral) {
         let status = null;
@@ -36,6 +36,8 @@ export default class HealthChecks{
                     ink_level_percentage:element
                   })
                   idx++;
+                  if (idx>3){
+                    return;                  }
                 });
             } catch (err) {
                 status="ERROR"

@@ -42,7 +42,7 @@ async function _readWeight() {
 
       ports.forEach(port => {
         if (port.vendorId === '067b' && port.productId === '23a3') {
-          console.log('Found It');
+          // console.log('Found It');
           MYport = port.path;
         }
       });
@@ -93,14 +93,14 @@ async function _readWeight() {
 
           if (readings.length >= maxReadings) {
             const average = readings.reduce((sum, value) => sum + value, 0) / readings.length;
-            console.log('[Weighing Scale] Average weight:', average);
+            // console.log('[Weighing Scale] Average weight:', average);
 
             port.close(err => {
               if (err) {
                 console.log('[Weighing Scale] Error closing port: ', err.message);
                 return reject(err);
               }
-              console.log('[Weighing Scale] Port closed successfully');
+              // console.log('[Weighing Scale] Port closed successfully');
               resolve(average);
             });
           }
@@ -112,7 +112,7 @@ async function _readWeight() {
         });
 
         port.on('close', () => {
-          console.log('Port closed');
+          // console.log('Port closed');
         });
 
       } else {

@@ -1,3 +1,7 @@
+
+import fs from 'fs';
+const pipePath = '/tmp/middleware-failsafe-pipe'
+
 function dateToYYMMDD (originalDate){
         console.log(originalDate)
         var year = originalDate.getFullYear().toString().slice(2); // Get last two digits of the year
@@ -306,13 +310,35 @@ export default class printProcess {
                         
                     }
                     bufferCount = await this.printer.getBufNum() // update the bufferCount number
-                    await new Promise(resolve => setTimeout(resolve, delayTime))
+                    // await new Promise(resolve => setTimeout(resolve, delayTime))
+                    await new Promise(resolve => setTimeout(resolve, 600))
+
                 }
                 
-                
+                fs.open(pipePath, 'w', (err, fd) => {
+                    if (err) {
+                      console.error('Failed to open named pipe:', err);
+                      return;
+                    }
+                  
+                    fs.write(fd, 'off', (err) => {
+                      if (err) {
+                        console.error('Failed to write to named pipe:', err);
+                      } else {
+                        console.log('Message sent: off');
+                      }
+                  
+                      fs.close(fd, (err) => {
+                        if (err) {
+                          console.error('Failed to close named pipe:', err);
+                        }
+                      });
+                    });
+                  });
                 await this.printer.clearBuffers()
                 this.printer.isOccupied=false
                 console.log(`[Printing Process] printing process with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id} is completed! $`)
+                
                 await this.printer.stopPrint();
                 await postDataToAPI('v1/work-order/active-job/complete-print',{})
             }

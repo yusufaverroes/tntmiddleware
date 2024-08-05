@@ -107,7 +107,7 @@ export default class TIJPrinter {
         this.socket.on('close', () => {
             console.log("[Printer] Listening stopped");
             this.running = false;
-            this.init?.reRun();
+            // this.init?.reRun();
         });
     }
 
@@ -150,7 +150,7 @@ export default class TIJPrinter {
         return new Promise((resolve, reject) => {
             if (!this.running) {
                 reject("[Printer] Not connected to a printer"); // Reject with error message directly
-                this.init?.reRun();
+                // this.init?.reRun();
                 this.running=false;
                 return;
             }
@@ -502,7 +502,7 @@ export default class TIJPrinter {
                             for (let i = 5; i < responseBuffer.length - 3; i++) {
                                 inkLevels.push(responseBuffer[i]); // Convert hex to decimal
                             }
-                            console.log("[Printer] Ink levels:", inkLevels);
+                            // console.log("[Printer] Ink levels:", inkLevels);
                             return inkLevels;
                         case 0x01:
                             throw new Error("One or more printer errors exist.");

@@ -23,7 +23,7 @@ class AggregationCam {
     
   }
   async setCallBack(){
-    console.log("hehe")
+    
     this.handleMessageData = await this.handleMessageData.bind(this);
    await this.wscForData.receiveMessage(this.handleMessageData);
     this.receivedMessages = [];
@@ -43,7 +43,7 @@ class AggregationCam {
       this.responseEvent1.once('responseReceived', () => {
         // console.log("event received")
         clearTimeout(timeout); 
-        console.log(this.status)
+        // console.log(this.status)
         if(this.status!='Ok'){
           this.init?.reRun();
         }

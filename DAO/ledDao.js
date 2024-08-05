@@ -74,7 +74,7 @@ export default class LED {
     if (['off', 'on', 'blinkSlow', 'blinkFast'].includes(state)) {
       this.state = state;
       this.blinkingTimes = blinkingTimes;
-      console.log(this.blinkingTimes)
+      // console.log(this.blinkingTimes)
       if (state !== 'blinkSlow' && state !== 'blinkFast') {
         this.stopBlinking();
       }

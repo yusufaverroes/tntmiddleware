@@ -109,7 +109,7 @@ export default class serCam {
             }
             
         } else {
-            
+                
             if (code==="ERROR" || code===null){
                 data.code=null
                 reason = "QR_NOT_FOUND"

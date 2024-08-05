@@ -1,13 +1,34 @@
 
 import  {printingProcess, printer,serialCamera} from '../../../../index.js';
 import printerTemplate from '../../../../utils/printerTemplates.js';
-
+import fs from 'fs';
+const pipePath = '/tmp/middleware-failsafe-pipe'
 
 
 
 const stopPrinting = async (req, res) => {
     printer.isOccupied=false;
     try {
+        fs.open(pipePath, 'w', (err, fd) => {
+            if (err) {
+              console.error('Failed to open named pipe:', err);
+              return;
+            }
+          
+            fs.write(fd, 'off', (err) => {
+              if (err) {
+                console.error('Failed to write to named pipe:', err);
+              } else {
+                console.log('Message sent: off');
+              }
+          
+              fs.close(fd, (err) => {
+                if (err) {
+                  console.error('Failed to close named pipe:', err);
+                }
+              });
+            });
+          });
         // printingProcess.full_code_queue.clear();
         await printer.send(12)
         console.log("printer is successfully stopped by the BE")
@@ -63,9 +84,30 @@ const startPrinting = async (req, res) => {
         if (await printingProcess.printSetupChecks()==="success"){
             printingProcess.print().then(() =>{})
             console.log("success")
+            fs.open(pipePath, 'w', (err, fd) => {
+                if (err) {
+                  console.error('Failed to open named pipe:', err);
+                  return;
+                }
+              
+                fs.write(fd, 'on', (err) => {
+                  if (err) {
+                    console.error('Failed to write to named pipe:', err);
+                  } else {
+                    console.log('Message sent: on');
+                  }
+              
+                  fs.close(fd, (err) => {
+                    if (err) {
+                      console.error('Failed to close named pipe:', err);
+                    }
+                  });
+                });
+              });
             res.status(200).send({message:`Printing Process with assignment Id = ${printingProcess.assignment_id}, work order Id =${printingProcess.work_order_id}, and template Id = ${printingProcess.templateId} started`})
             
         }else{
+
             return res.status(500).send({message:"unknown issue, printer is not started"})
         }
     }catch(err){

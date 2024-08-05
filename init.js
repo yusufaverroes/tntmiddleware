@@ -17,7 +17,7 @@ export default class Initialization {
     this.yellowButton = yellowButton,
     this.greenButton = greenButton,
     this.reRunning = false;
-    this.firstRun=false;
+    this.firstRun=true;
     this.state = {
       connectingToDB:false,
       connectingToWS:false,
@@ -92,7 +92,7 @@ export default class Initialization {
           this.yellowLed.setState('blinkFast')
           this.greenLed.setState('blinkFast')
           console.log('[Init] error occurred: ',err)
-          retryDelay=5;
+          retryDelay=10;
         }
 
       }else if(this.state.connectingToWS){
@@ -119,7 +119,7 @@ export default class Initialization {
           this.yellowLed.setState('blinkFast')
           this.greenLed.setState('off')
           console.log('[Init] error occurred: ',err)
-          retryDelay=5;
+          retryDelay=10;
         }
 
       }else if(this.state.connectingToAggCam){
@@ -143,7 +143,7 @@ export default class Initialization {
             this.yellowLed.setState('blinkFast',2);
             this.greenLed.setState('off');
             console.log('[Init] error occurred1: ',err);
-            retryDelay=5;
+            retryDelay=10;
           }
             
       }else if(this.state.connectingToPrinter){
@@ -166,7 +166,7 @@ export default class Initialization {
             this.yellowLed.setState('blinkFast', 3);
             this.greenLed.setState('off');
             console.log('[Init] error occurred: ',err);
-            retryDelay=5;
+            retryDelay=10;
           }
       }else if(this.state.connectingToSerCam){
         try{
@@ -189,7 +189,7 @@ export default class Initialization {
           this.yellowLed.setState('blinkFast', 4);
           this.greenLed.setState('off');
           console.log('[Init] error occurred: ',err);
-          retryDelay=5;
+          retryDelay=10;
         }        
       }else if(this.state.weighingScaleCheck){
         try{
@@ -209,7 +209,7 @@ export default class Initialization {
           this.yellowLed.setState('blinkFast', 5);
           this.greenLed.setState('off');
           console.log('[Init] error occurred: ',err);
-          retryDelay=5;
+          retryDelay=10;
         }                
       }else if (this.state.rejectorCheck){
         this.yellowLed.setState('on');
@@ -224,7 +224,7 @@ export default class Initialization {
           await this.rejector.test();
         });
         await this.rejector.test();
-        while (!greenButtonPressed){
+        while (!greenButtonPressed && this.firstRun===true){
           await sleep(1/10)
         }
         this.yellowLed.setState('blinkSlow')
@@ -294,12 +294,12 @@ export default class Initialization {
           
           
           end=true;  
-              
+          this.firstRun=false;
             
         } catch (error) {
             this.state.rejectorCheck=true;
             end=false;
-            this.firstRun=true;
+            
           console.log("[Init] need to re initialize", error)
         }
         
