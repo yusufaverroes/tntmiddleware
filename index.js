@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import lowDB from './DAO/masterConfigDao.js';
-import startHTTPServer  from './API/server/server.js';
+import {startHTTPServer, app}  from './API/server/server.js';
 import printProcess from './DAO/printProcessDao.js';
 import TIJPrinter from './DAO/TiJPrinterDao.js';
 import serCam from './DAO/serCamDao.js';
@@ -22,6 +22,7 @@ process.on('unhandledRejection', (err) => {
     console.error('Unhandled Promise Rejection:', err);
     // Handle the error gracefully or log it
 });
+
 
 // const masterConfig = new lowDB('../utils/master-config.json')
 // await masterConfig.init()
@@ -99,9 +100,9 @@ const printer = new TIJPrinter(process.env.TiJPrinter_IP, process.env.TiJPrinter
 const init = new Initialization(mongoDB, AggCamWsData,AggCamWsStatus, aggCam, printer,serialCamera, rejector, yellowLed,greenLed,yellowButton,greenButton )
 console.log("Initializing...")
 await init.run();
-printer.init=init;
-aggCam.init=init;
-serialCamera.init=init;
+// printer.init=init;
+// aggCam.init=init;
+// serialCamera.init=init;
 console.log("Initialization is completed !")
 
 
@@ -117,11 +118,30 @@ const healthChecks = new HealthChecks(printer, serialCamera,aggCam, healthChecks
 await healthChecksWs.connect();
 
 healthChecks.run()
+await new Promise(resolve => setTimeout(resolve, 1000));
+
+// console.log("simulate printing...");
+
+// const printingInterval = setInterval(()=>{
+//    printer.requestInkRemains();//ceritanya ngeprint
+// }, 5100)
+
+// setTimeout(()=>{
+//   console.log("printing simulation is finished");
+//   clearInterval(printingInterval)
+// },50000)
 export  {printingProcess,printer, serialCamera, rejector, masterConfig}  
 startHTTPServer(process.env.SERVER_PORT)
 
 
-
+process.on('SIGTERM', () => {
+  console.info('SIGTERM signal received.');
+  console.log('Closing http server.');
+  healthChecksWs.disconnect();
+  app.close(() => {
+    console.log('Http server closed.');
+  });
+});
 
 
 

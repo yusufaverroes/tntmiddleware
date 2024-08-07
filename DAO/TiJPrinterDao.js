@@ -2,7 +2,12 @@ import net from 'net';
 import { EventEmitter } from 'events';
 import { error } from 'console';
 import createCustomLogger from '../utils/logging.js'
+import {Mutex} from 'async-mutex';
 
+import { needToReInit } from '../utils/globalEventEmitter.js';
+
+const mutex = new Mutex();
+let sendFlag=false;
 
 function to16BitHex(value) {
     if (value >= 0) {
@@ -32,10 +37,13 @@ export default class TIJPrinter {
         this.noResponseCount=0;
         this.sendingQueue=[];
         this.sendingLock=false;
-
         this.notReceiving=false;
         
         this.logger = createCustomLogger("PRINTER")
+
+        this.hcTimekInterval = 5000;
+        this.hcTimeTolerance= 500;
+        this.healthCheckInterval =null;
 
         this.ESC = '1B';
         this.STX = '02';
@@ -44,23 +52,35 @@ export default class TIJPrinter {
 
     setPrintCallBack(callback) {
         this.printCallback = callback
-    } 
+    }
 
+    setHealthCheckInterval(){
+        this.healthCheckInterval= setInterval(() => this.requestPrinterStatus(), sendFlag?this.hcTimekInterval+this.hcTimeTolerance:this.hcTimekInterval)
+        sendFlag=false;
+    }
     connect() {
         return new Promise((res,rej) =>{
             try {
+                if(this.socket){
+                    this.socket.removeAllListeners();
+                    this.socket.destroy();
+                    this.socket=null;
+                }
+
                 this.socket = new net.Socket();
-                this.socket.setKeepAlive(true, 1000);
+                // this.socket.setKeepAlive(true, 1000);
                 this.socket.connect(this.port, this.ip, () => {
                 this.running = true;
+                this.socket.removeAllListeners();
                 this.listenerThread = this.listenForResponses();
+                this.setHealthCheckInterval();
                 console.log(`[Printer] Socket established on port ${this.port} and IP ${this.ip}`);
                 this.logger.info(`Socket established on port ${this.port} and IP ${this.ip}`);
                  res();
 
                  });
 
-                 this.socket.on('error', (err) => {
+                 this.socket.once('error', (err) => {
                     console.error("[Printer] Error listening for responses:", err);
                     this.logger.error("Error listening for responses:", err);
                     this.running = false;
@@ -68,7 +88,7 @@ export default class TIJPrinter {
                     rej(new Error (`[Printer] Connection error: ${err}`)) 
                 });
         
-                this.socket.on('close', (err) => {
+                this.socket.once('close', (err) => {
                     console.log("[Printer] Listening stopped");
                     this.logger.error("Error listening for responses:", err);
                     this.running = false;
@@ -99,13 +119,16 @@ export default class TIJPrinter {
 
         this.socket.on('error', (err) => {
             console.error("[Printer] Error listening for responses:", err);
-            
+            clearInterval(this.healthCheckInterval)
             this.running = false;
-            this.init?.reRun();
+            // this.init?.reRun();
+            needToReInit.emit("pleaseReInit", "Printer")
         });
 
         this.socket.on('close', () => {
             console.log("[Printer] Listening stopped");
+            clearInterval(this.healthCheckInterval)
+            needToReInit.emit("pleaseReInit", "Printer")
             this.running = false;
             // this.init?.reRun();
         });
@@ -145,8 +168,9 @@ export default class TIJPrinter {
     //         this._processQueue();
     //       }
     // }
-
-    send(hexData, commandName) {
+ 
+    async send(hexData, commandName) {
+        const release =  await mutex.acquire();
         return new Promise((resolve, reject) => {
             if (!this.running) {
                 reject("[Printer] Not connected to a printer"); // Reject with error message directly
@@ -154,7 +178,7 @@ export default class TIJPrinter {
                 this.running=false;
                 return;
             }
-    
+            clearInterval(this.healthCheckInterval)
             const hexDataToSend = this.ESC + this.STX + this.slaveAddress + hexData + this.ESC + this.EXT;
             
     
@@ -168,12 +192,17 @@ export default class TIJPrinter {
     
             let timeout = setTimeout(() => {
                 this.noResponseCount++;
+                sendFlag=true;
+                this.setHealthCheckInterval();
                 if(this.noResponseCount>=3 && this.running===true){
                     console.log("too many no responses")
                     this.running=false;
-                    this.init?.reRun();
+                    // this.init?.reRun();
+                    needToReInit.emit("pleaseReInit", "Printer")
                     this.noResponseCount=0;
                 }
+                
+                release();
                 reject(`Timeout occurred. No response from printer. Sent Command : ${commandName} `); // Reject with error message directly
             }, 1500);
     
@@ -182,7 +211,9 @@ export default class TIJPrinter {
                 clearTimeout(timeout);
                 // console.log("Reply :", this.responseBuffer); // Add this line for debugging
                 this.noResponseCount=0;
-                
+                sendFlag=true;
+                this.setHealthCheckInterval(); //restart healthcheck interval
+                release();
                 resolve(this.responseBuffer);
 
 
@@ -380,6 +411,7 @@ export default class TIJPrinter {
                             default:
                                 P_status = "unknown";
                         }
+                        console.log("[Printer] Status is : ", P_status)
             
                         // Translate ink_level
                         const statusByte = statusData[1];

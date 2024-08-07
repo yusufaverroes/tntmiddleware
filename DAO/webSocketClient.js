@@ -12,6 +12,10 @@ class WebSocketClient {
   connect() {
     return new Promise((resolve, reject) => {
       try {
+        if(this.ws){
+          this.we.removeAllListeners();
+          this.ws.close();
+        }
         const url = this.port===null?this.ip:`ws://${this.ip}:${this.port}`;
         console.log("[websocket] url :", url)
         const headers = {
@@ -20,19 +24,19 @@ class WebSocketClient {
   
         this.ws = new WebSocket(url, { headers });
   
-        this.ws.on('open', () => {
+        this.ws.once('open', () => {
           this.status = 'connected';
           resolve();
         });
   
-        this.ws.on('error', (error) => {
+        this.ws.once('error', (error) => {
           console.log("[Websocket] disconnected")
           this.status = 'disconnected';
           
           reject(error);
         });
   
-        this.ws.on('close', () => {
+        this.ws.once('close', () => {
           console.log("[Websocket] disconnected")
           this.status = 'disconnected';
         }); 

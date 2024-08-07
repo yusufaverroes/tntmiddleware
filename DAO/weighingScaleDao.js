@@ -1,40 +1,48 @@
 import { postDataToAPI } from '../API/APICall/apiCall.js';
 import { SerialPort, ReadlineParser } from 'serialport';
-
-let readingLock = false;
-let readingQueue = [];
-
+import {Mutex} from 'async-mutex';
+import { needToReInit } from '../utils/globalEventEmitter.js';
+// let readingLock = false;
+// let readingQueue = [];
+const mutex = new Mutex();
+let hckInterval= null;
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-
-function _processQueue() {
-  if (readingQueue.length > 0) {
-    const { resolve, reject } = readingQueue.shift();
-    readWeight().then(resolve).catch(reject);
+function setHCweightInterval(){
+  hckInterval=setInterval(()=>{
+    readWeight()
   }
+    ,10000)
 }
+// function _processQueue() {
+//   if (readingQueue.length > 0) {
+//     const { resolve, reject } = readingQueue.shift();
+//     readWeight().then(resolve).catch(reject);
+//   }
+// }
 
-const readWeight = async () => {
-  if (readingLock) {
-    return new Promise((resolve, reject) => {
-      readingQueue.push({ resolve, reject });
-    });
-  }
+// const readWeight = async () => {
+//   if (readingLock) {
+//     return new Promise((resolve, reject) => {
+//       readingQueue.push({ resolve, reject });
+//     });
+//   }
   
-  readingLock = true;
-  try {
-    const weight = await _readWeight();
-    return weight;
-  } catch (error) {
-    throw new Error('[Weighing Scale] error:', error);
-  } finally {
-    readingLock = false;
-    _processQueue();
-  }
-}
+//   readingLock = true;
+//   try {
+//     const weight = await _readWeight();
+//     return weight;
+//   } catch (error) {
+//     throw new Error('[Weighing Scale] error:', error);
+//   } finally {
+//     readingLock = false;
+//     _processQueue();
+//   }
+// }
 
-async function _readWeight() {
+async function readWeight() {
+  const release =  await mutex.acquire();
   return new Promise(async (resolve, reject) => {
     try {
       const ports = await SerialPort.list();
@@ -80,6 +88,7 @@ async function _readWeight() {
             nanCount++;
             if (nanCount > 10) {
               port.close(() => {
+                release();
                 return reject("too many NaNs");
               });
             }
@@ -87,6 +96,7 @@ async function _readWeight() {
 
           if (readings.length > 1 && Math.abs(readings[idx - 1] - readings[idx - 2]) > 0.0005) {
             port.close(() => {
+              release();
               return reject('unstable');
             });
           }
@@ -98,9 +108,11 @@ async function _readWeight() {
             port.close(err => {
               if (err) {
                 console.log('[Weighing Scale] Error closing port: ', err.message);
+                release();
                 return reject(err);
               }
               // console.log('[Weighing Scale] Port closed successfully');
+              release();
               resolve(average);
             });
           }
@@ -117,16 +129,19 @@ async function _readWeight() {
 
       } else {
         console.log('No matching port found');
+        release();
         reject(new Error('No matching port found'));
       }
     } catch (err) {
       console.error('Error listing ports: ', err);
+      release();
       reject(err);
     }
   });
 }
 
 const readPrinterButton = (button) => {
+  
   button.setShortPressCallback(async () => {
     try {
       console.log("[Label Printer] Label Printer button is pressed.");

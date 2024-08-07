@@ -58,7 +58,8 @@ export default class Rejection {
     // }
     async reject(){
         // await sleep(this.waitDelay);
-        await sleep(200); // Rizal Delay 1
+        // await sleep(200); // Rizal Delay 1
+        await sleep(189); // Rizal 2nd Delay 1
         // console.log("Rejector delay value:" + this.waitDelay); // Rizal added wait delay print
         this.switch1.setValue(0);
         // await sleep(this.rejectDelay);
@@ -69,11 +70,11 @@ export default class Rejection {
     async test(){
 
         this.switch1.setValue(0); // Rejection happens here
-        await sleep(100); 
+        await sleep(50); 
         this.switch1.setValue(1); 
         await sleep(100);
         this.switch1.setValue(0);
-        await sleep(100); 
+        await sleep(50); 
         this.switch1.setValue(1); 
     }
 }

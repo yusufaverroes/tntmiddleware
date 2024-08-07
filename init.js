@@ -2,7 +2,8 @@ import weighingScaleDao from "./DAO/weighingScaleDao.js";
 import { getDataToAPI } from "./API/APICall/apiCall.js";
 import { HttpStatusCode } from "axios";
 import fs from 'fs';
-import Mutex from 'async-mutex'
+import {Mutex} from 'async-mutex'
+import { needToReInit } from "./utils/globalEventEmitter.js";
 const mutex = new Mutex();
 const pipePath = '/tmp/middleware-failsafe-pipe'
 export default class Initialization {
@@ -31,8 +32,9 @@ export default class Initialization {
       finalChecks:false
     }
   }
-  async reRun() {
-    const release = await mutex.acquire();
+  async reRun(peripheral) {
+    // const release = await mutex.acquire();
+    console.log(`[Init] ${peripheral} is commiting a re-initialization`)
     try {
       if (!this.reRunning) {
         this.reRunning = true;
@@ -42,7 +44,7 @@ export default class Initialization {
         this.reRunning = false;
       }
     } finally {
-      release(); // Ensure the mutex is always released
+      // release(); // Ensure the mutex is always released
     }
   }
   async run(){
@@ -73,6 +75,8 @@ export default class Initialization {
     function sleep(s) {
       return new Promise(resolve => setTimeout(resolve, s*1000));
     }
+    this.yellowLed.setState('blinkSlow')
+    this.greenLed.setState('blinkSlow')
 
     while (!end){
       // await sleep(5)
@@ -314,6 +318,7 @@ export default class Initialization {
       await sleep(retryDelay)
       
     }
+    needToReInit.once("pleaseReInit", (arg)=>{this.reRun(arg)})
     console.log("[Initialisazion] inisialization has been completed")
   }
 

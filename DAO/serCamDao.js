@@ -1,11 +1,12 @@
 import net from 'net';
 import {postDataToAPI} from '../API/APICall/apiCall.js'
 import { printingProcess } from '../index.js';
+import { needToReInit } from '../utils/globalEventEmitter.js';
 
 function removeSpacesAndNewlines(inputString) {
     return inputString.replace(/\s+/g, '');
 }
-
+let normalHCFlag = false; 
 export default class serCam {
     constructor(ip, port, rejector) {
         this.init=null;
@@ -17,30 +18,62 @@ export default class serCam {
         this.rejector= rejector;
         this.accuracyThreshold =0.0 // need discussion
         this.active=false
+
+        this.hcTimekInterval = 10000;
+        this.hcTimeTolerance= 500;
+        this.healthCheckInterval=null;
+        this.healthCheckTimeout=null;
+    }
+
+   async setHealthCheckInterval(){
+        this.healthCheckInterval= setInterval(() => {
+            try {
+                if(this.socket){
+                    const message = "ERRSTAT\r";  // Sending LON followed by a carriage return
+                    this.socket.write(message, 'utf8');  // Sending as UTF-8 encoded string
+                    this.healthCheckTimeout = setTimeout(()=>{
+                    this.running = false;
+                    needToReInit.emit("pleaseReInit", "serCam");
+                    },500);
+
+                }
+            } catch (error) {   
+                console.log("[serCam] healthchek error : ", error)
+            }
+            
+        }, normalHCFlag?this.hcTimekInterval+this.hcTimeTolerance:this.hcTimekInterval)
+        normalHCFlag=false;
     }
     connect() {
         return new Promise((resolve, reject) =>{
             try {
+                if(this.socket){
+                    clearInterval(this.healthCheckInterval);
+                    this.socket.removeAllListeners();
+                    this.socket.destroy();
+                }
                 this.socket = new net.Socket();
-                this.socket.setKeepAlive(true, 1000);
+                // this.socket.setKeepAlive(true, 1000);
                 this.socket.connect(this.port, this.ip, () => {
                     this.running = true;
                     this.active = true; 
+                    this.socket.removeAllListeners();
                     this.listenerThread = this.listenForResponses();
+                    this.setHealthCheckInterval();
                     console.log("[Ser Cam] Socket established");
                     resolve();
                 });
-                    this.socket.on('error', (err) => {
+                    this.socket.once('error', (err) => {
                     this.running = false;
                     this.active=false;
-                    this.init?.reRun();
+                    
                     reject(`[Ser Cam] Connection error: ${err.message}`)
                     
                 });
-                this.socket.on('close', (err) => {
+                this.socket.once('close', (err) => {
                     this.running = false;
                     this.active=false;
-                    this.init?.reRun();
+
                     reject(`[Ser Cam] Connection error: ${err.message}`);
                     
                 });
@@ -53,19 +86,22 @@ export default class serCam {
     }
     disconnect() {
         this.running = false;
+        this.socket.removeAllListeners();
         this.socket.destroy();
         console.log("[Ser Cam] Disconnected");
     }
     separateStringToObject(input) {
         // Split the input string by ":"
         const parts = input.split(":");
-        
-        // Extract the code part
         const code = parts[0];
-        
-        // Extract the accuracy part and parse it as an integer
-        const accuracy = parseInt(parts[1]);
-    
+        let accuracy=0;
+        if (parts.lenth>1){
+
+            // Extract the accuracy part and parse it as an integer
+            accuracy = parseInt(parts[1]);
+  
+        }
+      
         // Create and return the resulting object
         return {
             code: removeSpacesAndNewlines(code),
@@ -74,23 +110,45 @@ export default class serCam {
     }
     listenForResponses() {
         this.socket.on('data', (response) => {
+
+            clearInterval(this.healthCheckInterval);
             if (response) {
+                let responseString = response.toString('utf8')
+                if (responseString.startsWith("OK,ERRSTAT,")){
+                    clearTimeout(this.healthCheckTimeout);
+                    responseString=responseString.split(",")
+                    if(removeSpacesAndNewlines(responseString[2])==="none"){
+                        console.log("[Ser Cam] Status is ok")
+                    }else{
+
+                        console.log("[Ser Cam] Camera error code found : ", responseString[2])
+                        needToReInit.emit("pleaseReInit", "serCam");
+                    }
+                }else{
+                    responseString = this.separateStringToObject(responseString)
+                    const data = this.receiveData(responseString)
+                }
                 
-                const data = this.receiveData(this.separateStringToObject(response.toString('utf8')))
             }
+            this.setHealthCheckInterval();
         });
+        
 
         this.socket.on('error', (err) => {
+            clearInterval(this.healthCheckInterval);
+            needToReInit.emit("pleaseReInit", "serCam");
             console.error("[Ser Cam] Error listening for responses:", err);
         });
 
         this.socket.on('close', () => {
+            clearInterval(this.healthCheckInterval);
+            needToReInit.emit("pleaseReInit", "serCam")
             console.log("[Ser Cam] Listening stopped");
             this.running = false;
         });
     }
 
-    checkFormat(data) { //TODO : pattern should be parameterized
+    checkFormat(data) { 
         const identifikasi_pattern = /^\(90\)[A-Za-z0-9]{1,16}\(91\)\d{1,10}$/;
         const otentifikasi_pattern1 = /^\(90\)[A-Za-z0-9]{1,16}\(10\)[A-Za-z0-9]{1,20}\(17\)\d{1,6}\(21\)[A-Za-z0-9]{1,20}$/;
         const otentifikasi_pattern2 = /^\(01\)[A-Za-z0-9]{14}\(10\)[A-Za-z0-9]{1,20}\(17\)\d{1,6}\(21\)[A-Za-z0-9]{1,20}$/;
@@ -109,8 +167,7 @@ export default class serCam {
             }
             
         } else {
-                
-            if (code==="ERROR" || code===null){
+            if (code==="ERROR;" || code===null){
                 data.code=null
                 reason = "QR_NOT_FOUND"
             }else{
