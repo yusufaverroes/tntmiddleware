@@ -195,9 +195,10 @@ export default class TIJPrinter {
                 sendFlag=true;
                 this.setHealthCheckInterval();
                 if(this.noResponseCount>=3 && this.running===true){
-                    console.log("too many no responses")
+                    console.log("[Printer] too many no responses")
                     this.running=false;
                     // this.init?.reRun();
+                    clearInterval(this.healthCheckInterval)
                     needToReInit.emit("pleaseReInit", "Printer")
                     this.noResponseCount=0;
                 }

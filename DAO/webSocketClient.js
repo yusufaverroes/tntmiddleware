@@ -13,7 +13,7 @@ class WebSocketClient {
     return new Promise((resolve, reject) => {
       try {
         if(this.ws){
-          this.we.removeAllListeners();
+          this.ws.removeAllListeners();
           this.ws.close();
         }
         const url = this.port===null?this.ip:`ws://${this.ip}:${this.port}`;

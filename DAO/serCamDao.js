@@ -6,7 +6,7 @@ import { needToReInit } from '../utils/globalEventEmitter.js';
 function removeSpacesAndNewlines(inputString) {
     return inputString.replace(/\s+/g, '');
 }
-let normalHCFlag = false; 
+let normalHCFlag = false; //normal health check flag
 export default class serCam {
     constructor(ip, port, rejector) {
         this.init=null;
@@ -29,11 +29,11 @@ export default class serCam {
         this.healthCheckInterval= setInterval(() => {
             try {
                 if(this.socket){
-                    const message = "ERRSTAT\r";  // Sending LON followed by a carriage return
+                    const message = "ERRSTAT\r";  // sendinf command ERRSTAT
                     this.socket.write(message, 'utf8');  // Sending as UTF-8 encoded string
                     this.healthCheckTimeout = setTimeout(()=>{
                     this.running = false;
-                    needToReInit.emit("pleaseReInit", "serCam");
+                    needToReInit.emit("pleaseReInit", "serCam"); // ask to re-init
                     },500);
 
                 }
@@ -92,10 +92,11 @@ export default class serCam {
     }
     separateStringToObject(input) {
         // Split the input string by ":"
+        
         const parts = input.split(":");
         const code = parts[0];
         let accuracy=0;
-        if (parts.lenth>1){
+        if (parts.length>1){
 
             // Extract the accuracy part and parse it as an integer
             accuracy = parseInt(parts[1]);
@@ -110,6 +111,7 @@ export default class serCam {
     }
     listenForResponses() {
         this.socket.on('data', (response) => {
+            
 
             clearInterval(this.healthCheckInterval);
             if (response) {
@@ -126,6 +128,7 @@ export default class serCam {
                     }
                 }else{
                     responseString = this.separateStringToObject(responseString)
+                    
                     const data = this.receiveData(responseString)
                 }
                 
@@ -182,7 +185,7 @@ export default class serCam {
     }
 
     async receiveData(data) {
-        
+        console.log("String2 : ",data)
         const check = this.checkFormat(data)
         
             if(!check.result){

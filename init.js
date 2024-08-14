@@ -318,6 +318,7 @@ export default class Initialization {
       await sleep(retryDelay)
       
     }
+    needToReInit.removeAllListeners()
     needToReInit.once("pleaseReInit", (arg)=>{this.reRun(arg)})
     console.log("[Initialisazion] inisialization has been completed")
   }

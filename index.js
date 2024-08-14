@@ -114,10 +114,10 @@ console.log("Initialization is completed !")
 const printingProcess = new printProcess(printer, mongoDB.db) // instancing printing process class with printer and mongoDB instances as the constructor
 console.log(`test master : ${printingProcess.templateName}`)
 
-const healthChecks = new HealthChecks(printer, serialCamera,aggCam, healthChecksWs);
-await healthChecksWs.connect();
+// const healthChecks = new HealthChecks(printer, serialCamera,aggCam, healthChecksWs);
+// await healthChecksWs.connect();
 
-healthChecks.run()
+// healthChecks.run()
 await new Promise(resolve => setTimeout(resolve, 1000));
 
 // console.log("simulate printing...");

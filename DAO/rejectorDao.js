@@ -69,13 +69,13 @@ export default class Rejection {
     }
     async test(){
 
-        this.switch1.setValue(0); // Rejection happens here
-        await sleep(50); 
-        this.switch1.setValue(1); 
-        await sleep(100);
-        this.switch1.setValue(0);
-        await sleep(50); 
-        this.switch1.setValue(1); 
+        // this.switch1.setValue(0); // Rejection happens here
+        // await sleep(50); 
+        // this.switch1.setValue(1); 
+        // await sleep(100);
+        // this.switch1.setValue(0);
+        // await sleep(50); 
+        // this.switch1.setValue(1); 
     }
 }
 

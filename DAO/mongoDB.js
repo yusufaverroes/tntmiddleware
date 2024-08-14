@@ -7,13 +7,22 @@ export default class MongoDB {
         this.client = new MongoClient(uri, options);
         this.db = null;
         this.isConnected = false;
-        this.reconnectTries = options.reconnectTries || 5;
-        this.reconnectInterval = options.reconnectInterval || 5000;
-
+        this.healthCheckInterval=null;
+        this.healthCheckTime= 5000 // The time for interval on healthcheck
+        this.healthCheckTimeTolerance=300 // tolerance for redundance
+        // this.reconnectTries = options.reconnectTries || 5;
+        // this.reconnectInterval = options.reconnectInterval || 5000;
+        
         // this.client.on('serverClosed', this.handleDisconnect.bind(this));
         // this.client.on('topologyClosed', this.handleDisconnect.bind(this));
         // this.client.on('error', this.handleDisconnect.bind(this));
         // this.client.on('timeout', this.handleDisconnect.bind(this));
+    }
+
+    setHealthCheck(){
+        setTimeout(()=>{
+            const collectionExists = database.ListCollectionNames().ToList().Contains("serialization"); // just checking if the collection is exist
+        }, )
     }
 
     async connect() {
