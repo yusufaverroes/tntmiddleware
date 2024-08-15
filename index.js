@@ -111,7 +111,7 @@ console.log("Initialization is completed !")
 // const inks = await printer.requestInkRemains()
 // console.log(inks[0]);
 
-const printingProcess = new printProcess(printer, mongoDB.db) // instancing printing process class with printer and mongoDB instances as the constructor
+const printingProcess = new printProcess(printer, mongoDB) // instancing printing process class with printer and mongoDB instances as the constructor
 console.log(`test master : ${printingProcess.templateName}`)
 
 // const healthChecks = new HealthChecks(printer, serialCamera,aggCam, healthChecksWs);

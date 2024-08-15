@@ -7,6 +7,7 @@ export default class MongoDB {
         this.client = new MongoClient(uri, options);
         this.db = null;
         this.isConnected = false;
+        this.normalOperationFlag= false;
         this.healthCheckInterval=null;
         this.healthCheckTime= 5000 // The time for interval on healthcheck
         this.healthCheckTimeTolerance=300 // tolerance for redundance
@@ -20,9 +21,19 @@ export default class MongoDB {
     }
 
     setHealthCheck(){
-        setTimeout(()=>{
-            const collectionExists = database.ListCollectionNames().ToList().Contains("serialization"); // just checking if the collection is exist
-        }, )
+        try {
+            
+            this.healthCheckInterval = setInterval(async ()=>{
+                const collectionExists = await this.db.listCollections(); // only for health check, checking if the collection is exist
+                console.log("[MongdoDB] mongodb is healthy")
+            }, this.normalOperationFlag?this.healthCheckTime+this.healthCheckTimeTolerance:this.healthCheckTime);
+            this.normalOperationFlag=false;
+            
+        } catch (error) {
+            console.log("[MongoDB] health check error : ", error)
+            this.normalOperationFlag=false;
+        }
+        
     }
 
     async connect() {
@@ -32,6 +43,7 @@ export default class MongoDB {
             console.log('[MongoDB] Connected to the MongoDB');
             this.db = this.client.db(this.databaseName);
             this.isConnected = true;
+            this.setHealthCheck()
         } catch (err) {
             console.error('[MongoDB] Error connecting to the MongoDB, error:', err);
             this.isConnected = false;

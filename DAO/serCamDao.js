@@ -6,7 +6,7 @@ import { needToReInit } from '../utils/globalEventEmitter.js';
 function removeSpacesAndNewlines(inputString) {
     return inputString.replace(/\s+/g, '');
 }
-let normalHCFlag = false; //normal health check flag
+let normalOperationFlag = false; //normal operation flag for healthcheck
 export default class serCam {
     constructor(ip, port, rejector) {
         this.init=null;
@@ -19,7 +19,7 @@ export default class serCam {
         this.accuracyThreshold =0.0 // need discussion
         this.active=false
 
-        this.hcTimekInterval = 10000;
+        this.hcTimeInterval = 10000;
         this.hcTimeTolerance= 500;
         this.healthCheckInterval=null;
         this.healthCheckTimeout=null;
@@ -41,8 +41,8 @@ export default class serCam {
                 console.log("[serCam] healthchek error : ", error)
             }
             
-        }, normalHCFlag?this.hcTimekInterval+this.hcTimeTolerance:this.hcTimekInterval)
-        normalHCFlag=false;
+        }, normalOperationFlag?this.hcTimeInterval+this.hcTimeTolerance:this.hcTimeInterval)
+        normalOperationFlag=false;
     }
     connect() {
         return new Promise((resolve, reject) =>{
@@ -127,6 +127,7 @@ export default class serCam {
                         needToReInit.emit("pleaseReInit", "serCam");
                     }
                 }else{
+                    normalOperationFlag=true;
                     responseString = this.separateStringToObject(responseString)
                     
                     const data = this.receiveData(responseString)

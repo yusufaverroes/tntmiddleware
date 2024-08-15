@@ -34,11 +34,13 @@ import Queue from '../utils/queue.js';
 import printerTemplate from '../utils/printerTemplates.js';
 import {postDataToAPI, putDataToAPI} from '../API/APICall/apiCall.js';
 import { masterConfig } from '../index.js';
+import { clearInterval } from 'timers';
 export default class printProcess {
-    constructor(printer, db) {
+    constructor(printer, mongoDB) {
         this.printer = printer;
         this.fileNames = [];
-        this.db=db
+        this.mongoDB=mongoDB
+        this.db=this.mongoDB.db
         // console.log(db)
         this.work_order_id=null
         this.assignment_id=null
@@ -54,6 +56,10 @@ export default class printProcess {
     }
     async getCodeDetails(db) {
         try {
+            if (this.mongoDB.healthCheckInterval){
+                clearInterval(this.mongoDB.healthCheckInterval)
+                this.mongoDB.normalOperationFlag=true;
+            }
             const work_order = await db.collection('work_order').findOne({ external_id: this.work_order_id });
             if (!work_order) {
                 throw new Error(`Work order ${this.work_order_id} not found`);
@@ -65,7 +71,7 @@ export default class printProcess {
             }
 
             console.log(JSON.stringify(work_order))
-    
+            this.mongoDB.setHealthCheck();
             return {
                 NIE: product.nie,
                 BN: work_order.batch_no,
@@ -82,50 +88,68 @@ export default class printProcess {
     }
     
     async getDataBySmallestId(db) {
-        const result = await db.collection('serialization').aggregate(
-            [
-                {
-                  '$sort': {
-                    '_id': 1
-                  }
-                }, {
-                  '$match': {
-                    'status':'SENT_TO_PRINTER', // this.sampling?"SAMPLE_SENT_TO_PRINTER":
-                    'work_order_id': this.work_order_id, 
-                    'assignment_id': this.assignment_id
-                  }
-                }, {
-                  '$limit': 1
-                }
-              ]).toArray();
-            if (result.length==1){
-                return {id:result[0]._id,full_code:result[0].full_code,SN:result[0].code}
-            } else {
-                return false //no code found
+        try {
+            if (this.mongoDB.healthCheckInterval){
+                clearInterval(this.mongoDB.healthCheckInterval)
+                this.mongoDB.normalOperationFlag=true;
             }
+            const timout = setTimeout(()=>{ 
+                
+                throw new Error("timed out on retrieving data from mongoDB")
+            }, 1800)   
+            const result = await db.collection('serialization').aggregate(
+                [
+                    {
+                      '$sort': {
+                        '_id': 1
+                      }
+                    }, {
+                      '$match': {
+                        'status':'SENT_TO_PRINTER', // this.sampling?"SAMPLE_SENT_TO_PRINTER":
+                        'work_order_id': this.work_order_id, 
+                        'assignment_id': this.assignment_id
+                      }
+                    }, {
+                      '$limit': 1
+                    }
+                  ]).toArray();
+                  clearTimeout(timout);
+                  this.mongoDB.setHealthCheck();
+   
+                if (result.length==1){
+                    return {id:result[0]._id,full_code:result[0].full_code,SN:result[0].code}
+                } else {
+                    return false //no code found
+                }
+               
+
+        } catch (error) {
+            console.log("[Print Process] error on getting data by smallest id : ", error)
+        }
+        
     }
   
-    async getSmallestId(db) {
-        const result = await db.collection('serialization').findOne(
-            {
-                status: "PRINTING", //this.sampling?"SAMPLING":
-                work_order_id:this.work_order_id,
-                assignment_id:this.assignment_id
-            },
-            {
-                sort: { _id: 1 },
-                projection: { _id: 1 }
-            }
-        );
+    // async getSmallestId(db) {
+    //     const result = await db.collection('serialization').findOne(
+    //         {
+    //             status: "PRINTING", //this.sampling?"SAMPLING":
+    //             work_order_id:this.work_order_id,
+    //             assignment_id:this.assignment_id
+    //         },
+    //         {
+    //             sort: { _id: 1 },
+    //             projection: { _id: 1 }
+    //         }
+    //     );
        
-        if (result) {
-            console.log(result)
-            return result._id;
-        } else {
-            console.log(`[Printer Process] No (or no more) document found matching the criteria of the working order id :${this.work_order_id} and assignment id :${this.assignment_id} `);
-            return null;
-        }
-    }
+    //     if (result) {
+    //         console.log(result)
+    //         return result._id;
+    //     } else {
+    //         console.log(`[Printer Process] No (or no more) document found matching the criteria of the working order id :${this.work_order_id} and assignment id :${this.assignment_id} `);
+    //         return null;
+    //     }
+    // }
  
    
      convertToHex(str) {

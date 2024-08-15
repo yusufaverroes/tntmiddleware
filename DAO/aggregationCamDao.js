@@ -1,5 +1,6 @@
 import { postDataToAPI } from "../API/APICall/apiCall.js";
 import { EventEmitter } from 'events';
+import { needToReInit } from "../utils/globalEventEmitter.js";
 
 class AggregationCam {
   constructor(wscForData,wscForStatus, aggButton) {
@@ -21,6 +22,23 @@ class AggregationCam {
     this.responseEvent = new EventEmitter();
     this.timeout=null
     
+    this.hcInterval=null;
+    this.hcIntervalTime= 1000;
+    this.hcIntervalTolerance=100;
+    this.normalProcessFlag=false;
+    
+  }
+  async setHCIinterval(){
+    try {
+      this.hcInterval=setInterval(async ()=>{
+        const status = await this.getStatus()
+        if (status!='Ok'){
+          needToReInit.emit("pleaseReInit", "AggCam")
+        }
+      },this.normalOperationFlag?this.hcIntervalTime+this.hcTimeTolerance:this.hcIntervalTime)
+    } catch (error) {
+      needToReInit.emit("pleaseReInit", "AggCamWS")
+    }
   }
   async setCallBack(){
     
@@ -38,14 +56,14 @@ class AggregationCam {
       
       let timeout = setTimeout(() => {
         reject(`[Agg. Cam] Timeout occurred. No response from websocket`);
-        this.init?.reRun();
+        // this.init?.reRun();
       }, 2000);
       this.responseEvent1.once('responseReceived', () => {
         // console.log("event received")
         clearTimeout(timeout); 
         // console.log(this.status)
         if(this.status!='Ok'){
-          this.init?.reRun();
+          // this.init?.reRun();
         }
         resolve(this.status);
       })

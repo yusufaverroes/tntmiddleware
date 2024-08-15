@@ -5,15 +5,30 @@ import { needToReInit } from '../utils/globalEventEmitter.js';
 // let readingLock = false;
 // let readingQueue = [];
 const mutex = new Mutex();
-let hckInterval= null;
+let hcInterval= null;
+const hcIntervalTime=33800;
+const hcIntervalTolerance = 1000;
+
+let normalProcessFlag=false;
+let errorOnReading=false;
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 function setHCweightInterval(){
-  hckInterval=setInterval(()=>{
-    readWeight()
+  hcInterval=setInterval(async ()=>{
+    try {
+      await readWeight();
+    } catch (error) {
+      if(errorOnReading){
+        console.log("[Weighing Scale] the weighing scale is unhealthy");
+      }
+      
+    }
+    errorOnReading=false;
+    normalProcessFlag=false;
+
   }
-    ,10000)
+    ,normalProcessFlag?hcIntervalTime+hcIntervalTolerance:hcIntervalTime)
 }
 // function _processQueue() {
 //   if (readingQueue.length > 0) {
@@ -67,6 +82,8 @@ async function readWeight() {
 
         port.open(err => {
           if (err) {
+            errorOnReading=true;
+            release();
             return reject('Error opening port: ' + err.message);
           }
           // console.log('[Weiging Scale] Port opened');
@@ -88,6 +105,7 @@ async function readWeight() {
             nanCount++;
             if (nanCount > 10) {
               port.close(() => {
+                errorOnReading=true;
                 release();
                 return reject("too many NaNs");
               });
@@ -108,6 +126,7 @@ async function readWeight() {
             port.close(err => {
               if (err) {
                 console.log('[Weighing Scale] Error closing port: ', err.message);
+                
                 release();
                 return reject(err);
               }
@@ -133,6 +152,7 @@ async function readWeight() {
         reject(new Error('No matching port found'));
       }
     } catch (err) {
+      errorOnReading=true;
       console.error('Error listing ports: ', err);
       release();
       reject(err);
@@ -153,4 +173,4 @@ const readPrinterButton = (button) => {
   });
 }
 
-export default { readWeight, readPrinterButton };
+export default { readWeight, readPrinterButton, hcInterval, setHCweightInterval, normalProcessFlag};
