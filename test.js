@@ -34,16 +34,14 @@ import { serverIsDead } from './utils/globalEventEmitter.js';
 //  test();
 //  test();
 
-async function test(){
-    try {
-        setTimeout(()=>{
-            throw new Error("Error woy");
-        },5000)
-        await new Promise(resolve => setTimeout(resolve, 100000));
-    } catch (error) {
-        console.log("error: ", error)
-    }
-    
+function colekdong(namanya){
+    console.log(`colek ${namanya} ah`)
 }
 
-await test();
+let interval = setInterval(()=>{
+    events.emit("colek lah", "rizal")
+}, 1000)
+
+events.once("colek lah", (nama)=>{
+    colekdong(nama)
+})

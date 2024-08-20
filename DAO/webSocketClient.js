@@ -54,9 +54,11 @@ class WebSocketClient {
     }
   }
 
-  receiveMessage(callback) {
+  receiveMessage(callback, name="") {
+    console.log("assining callback ws")
     if (this.ws) {
       this.ws.on('message', callback);
+      console.log("callback ws assigned by ",name )
     } else {
       console.error('WebSocket is not initialized.');
     }

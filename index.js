@@ -18,6 +18,7 @@ import Button from './DAO/buttonDao.js';
 import LED from './DAO/ledDao.js';
 // import printerTemplate from './utils/printerTemplates.js';
 // import printerTemplate from './utils/printerTemplates.js';
+console.log("Starting middleware...")
 process.on('unhandledRejection', (err) => {
     console.error('Unhandled Promise Rejection:', err);
     // Handle the error gracefully or log it
@@ -113,9 +114,9 @@ console.log("Initialization is completed !")
 
 const printingProcess = new printProcess(printer, mongoDB) // instancing printing process class with printer and mongoDB instances as the constructor
 console.log(`test master : ${printingProcess.templateName}`)
+await healthChecksWs.connect();
+const healthChecks = new HealthChecks(printer, serialCamera,aggCam, healthChecksWs);
 
-// const healthChecks = new HealthChecks(printer, serialCamera,aggCam, healthChecksWs);
-// await healthChecksWs.connect();
 
 // healthChecks.run()
 await new Promise(resolve => setTimeout(resolve, 1000));

@@ -8,7 +8,7 @@ export default class HealthChecks{
         this.aggCam = aggCam
         this.webSocketClient = webSocketClient
         this.handleMessageData = this.handleMessageData.bind(this);
-        this.webSocketClient.receiveMessage(this.handleMessageData);
+        this.webSocketClient.receiveMessage(this.handleMessageData, "HC");
         this.checkInterval = 20000 //five secs
     }
       async getStatus(peripheral) {
@@ -159,8 +159,14 @@ export default class HealthChecks{
         // setInterval(() => this.sendToWS('SER_CAM'), this.checkInterval);
         // setInterval(() => this.sendToWS('AGG_CAM'), this.checkInterval);
       }
-      handleMessageData(message){
-        console.log("[Health Check] got response : ", message)
+       async handleMessageData(message){
+        console.log("[Health Check] got data : ", message)
+    
+        try {
+           await this.webSocketClient.sendMessage( message)
+        } catch (error) {
+          console.error('[Health Checks] Error sending to wesbsocket:', error);
+        }
       }
     }
     

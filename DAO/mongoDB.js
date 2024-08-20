@@ -1,4 +1,6 @@
 import { MongoClient } from 'mongodb';
+import { needToReInit } from '../utils/globalEventEmitter.js';
+// import { clear } from 'winston';
 
 export default class MongoDB {
     constructor(uri, databaseName, options = {}) {
@@ -24,16 +26,23 @@ export default class MongoDB {
         try {
             
             this.healthCheckInterval = setInterval(async ()=>{
-                const collectionExists = await this.db.listCollections(); // only for health check, checking if the collection is exist
+                let timeout = setTimeout(()=>{
+                    needToReInit.emit("pleaseReInit", "MongoDB")
+                    console.log ("waiting for health check response is timed out")
+                }, 1000)
+                const serverStatus =  await this.client.db('admin').command({ serverStatus: 1 }); // only for health check, checking if the collection is exist
+                clearTimeout(timeout);
+                if (serverStatus.ok!=1){throw new Error ("[MongdoDB] mongodb is unhealthy")}
                 console.log("[MongdoDB] mongodb is healthy")
             }, this.normalOperationFlag?this.healthCheckTime+this.healthCheckTimeTolerance:this.healthCheckTime);
             this.normalOperationFlag=false;
             
-        } catch (error) {
+        } catch (error) {//TODO: add clearTimeout(timeout);
+            needToReInit.emit("pleaseReInit", "MongoDB")
             console.log("[MongoDB] health check error : ", error)
             this.normalOperationFlag=false;
         }
-        
+
     }
 
     async connect() {

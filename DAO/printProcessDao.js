@@ -35,6 +35,8 @@ import printerTemplate from '../utils/printerTemplates.js';
 import {postDataToAPI, putDataToAPI} from '../API/APICall/apiCall.js';
 import { masterConfig } from '../index.js';
 import { clearInterval } from 'timers';
+import { clear, time } from 'console';
+import { needToReInit } from '../utils/globalEventEmitter.js';
 export default class printProcess {
     constructor(printer, mongoDB) {
         this.printer = printer;
@@ -60,7 +62,11 @@ export default class printProcess {
                 clearInterval(this.mongoDB.healthCheckInterval)
                 this.mongoDB.normalOperationFlag=true;
             }
+            let timeout= setTimeout(()=>{
+                throw new Error("time out occurred")
+            },1000)
             const work_order = await db.collection('work_order').findOne({ external_id: this.work_order_id });
+            clearTimeout(timeout)
             if (!work_order) {
                 throw new Error(`Work order ${this.work_order_id} not found`);
             }
@@ -96,7 +102,8 @@ export default class printProcess {
             const timout = setTimeout(()=>{ 
                 
                 throw new Error("timed out on retrieving data from mongoDB")
-            }, 1800)   
+                
+            }, 1000)   
             const result = await db.collection('serialization').aggregate(
                 [
                     {
@@ -125,10 +132,26 @@ export default class printProcess {
 
         } catch (error) {
             console.log("[Print Process] error on getting data by smallest id : ", error)
+            this.dbManualHealthCheck()
+
         }
         
     }
-  
+    async dbManualHealthCheck() {
+        try {
+            let timeout = setTimeout(()=>{
+                console.log("[Print Process] timed out occured while trying to do health check manually")
+                needToReInit.emit("pleaseReInit","MongoDB")
+                this.printer.isOccupied=false;
+            }, 1000)
+            const serverStatus =  await this.client.db('admin').command({ serverStatus: 1 }); // only for health check, checking if the collection is exist
+            clearTimeout(timeout);
+            
+        } catch (error) {
+            console.log("[Print Process] Error out occured while trying to do health check manually ",error)
+        }
+        
+    }
     // async getSmallestId(db) {
     //     const result = await db.collection('serialization').findOne(
     //         {
@@ -202,12 +225,17 @@ export default class printProcess {
             while (serialization && (P_status === "no errors" || P_status=== "still full")){ // filling up the buffer first
                 
                 P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) // goes to printer buffer
+                let updateTimeOut = setTimeout(()=>{
+                    this.dbManualHealthCheck()
+                },1000)
+                
                 await this.db.collection('serialization')
         
                 .updateOne( { _id: serialization.id}, 
                             { $set: { status : this.sampling?"SAMPLING":"PRINTING", update_at: Date.now()} } // update the status of the printed code upon pusing to buffer 
                             )
                 this.full_code_queue.enqueue(serialization.full_code)
+                clearTimeout(updateTimeOut)
                 serialization = await this.getDataBySmallestId(this.db)
                 if (P_status === "now full"){
 
@@ -246,10 +274,15 @@ export default class printProcess {
                         flag_escape++;
                         if (flag_escape > 3) // exit infinite while loop
                             {
+                                let updateTimeOut = setTimeout(()=>{
+                                    this.dbManualHealthCheck()
+                                },1000)
+                                
                                 await this.db.collection('serialization')
                                 .updateOne( { _id: serialization.id}, 
                                 { $set: { status : "PRINTING"} } // update the status of the printed code upon pusing to buffer 
                                 )
+                                clearTimeout(updateTimeOut)
                                 this.full_code_queue.enqueue(serialization.full_code)
                                 const printed = this.full_code_queue.dequeue();
                                 await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
@@ -292,17 +325,26 @@ export default class printProcess {
                         }
                 } catch (err) {
                     console.log("[Printer Process] - Failed sending buffer to printer, ", err);
+                    let updateTimeOut = setTimeout(()=>{
+                        this.dbManualHealthCheck()
+                    },1000)
+                    
                     await this.db.collection('serialization')
                      .updateOne( { _id: serialization.id}, 
                     { $set: { status : "ERROR_OCCURED"} } // update the status of the printed code upon pusing to buffer 
                     )
+                    clearTimeout(updateTimeOut)
                     this.full_code_queue.enqueue(serialization.full_code) 
                 }       
                 if (P_status === "no errors" || P_status ==="now full" || P_status==="full attempt to send" || P_status==="failed to updated to DB") {
+                    let updateTimeOut = setTimeout(()=>{
+                        this.dbManualHealthCheck()
+                    },1000)
                     await this.db.collection('serialization')
                      .updateOne( { _id: serialization.id}, 
                     { $set: { status : "PRINTING"} } // update the status of the printed code upon pusing to buffer 
                     )
+                    clearTimeout(updateTimeOut)
                     this.full_code_queue.enqueue(serialization.full_code) // yusuf: this will be called twice if failed to upddate db 
                     const printed = this.full_code_queue.dequeue();
                     await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
