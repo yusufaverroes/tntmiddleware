@@ -6,6 +6,7 @@ import {Mutex} from 'async-mutex'
 import { needToReInit } from "./utils/globalEventEmitter.js";
 const mutex = new Mutex();
 const pipePath = '/tmp/middleware-failsafe-pipe'
+export let problematicPeripheral=null;
 export default class Initialization {
   constructor(DB,aggCamWsData,aggCamWsStatus, aggCam, printer, serCam, rejector, yellowLed, greenLed, yellowButton, greenButton ){
     this.MongoDB = DB
@@ -31,10 +32,12 @@ export default class Initialization {
       rejectorCheck:true,
       finalChecks:false
     }
+  
   }
   async reRun(peripheral) {
     // const release = await mutex.acquire();
     console.log(`[Init] ${peripheral} is commiting a re-initialization`)
+    problematicPeripheral =peripheral;
     try {
       if (!this.reRunning) {
         this.reRunning = true;
@@ -320,6 +323,7 @@ export default class Initialization {
     }
     needToReInit.removeAllListeners()
     needToReInit.once("pleaseReInit", (arg)=>{this.reRun(arg)})
+    problematicPeripheral=null;
     console.log("[Initialisazion] inisialization has been completed")
   }
 

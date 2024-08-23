@@ -2,6 +2,7 @@
 import  {printingProcess, printer,serialCamera} from '../../../../index.js';
 import printerTemplate from '../../../../utils/printerTemplates.js';
 import fs from 'fs';
+import { problematicPeripheral } from '../../../../init.js';
 const pipePath = '/tmp/middleware-failsafe-pipe'
 
 
@@ -50,6 +51,10 @@ const toggleToNotReceive = async (req, res) =>{
 const startPrinting = async (req, res) => {
     let missingBody=""
     console.log("start printing called by BE")
+    console.log("per :" , problematicPeripheral)
+    if (problematicPeripheral){
+      throw new Error (`${problematicPeripheral} is not ready`)
+    }
     if(req.body.threshold ){
         if(typeof req.body.threshold  !== 'number' || isNaN(req.body.threshold)){
             throw new Error ("threshold value must be a number")
