@@ -34,14 +34,27 @@ import { serverIsDead } from './utils/globalEventEmitter.js';
 //  test();
 //  test();
 
-function colekdong(namanya){
-    console.log(`colek ${namanya} ah`)
-}
+// function colekdong(namanya){
+//     console.log(`colek ${namanya} ah`)
+// }
 
-let interval = setInterval(()=>{
-    events.emit("colek lah", "rizal")
-}, 1000)
+// let interval = setInterval(()=>{
+//     events.emit("colek lah", "rizal")
+// }, 1000)
 
-events.once("colek lah", (nama)=>{
-    colekdong(nama)
-})
+// events.once("colek lah", (nama)=>{
+//     colekdong(nama)
+// })
+
+let testInterval = setInterval(()=>{
+    console.log("hello 1")
+},1000)
+ testInterval = setInterval(()=>{
+    console.log("hello 2")
+},2000)
+
+setTimeout(()=>{
+    clearInterval(testInterval)
+    clearInterval(testInterval)
+    console.log("interval is cleared")
+},10000)

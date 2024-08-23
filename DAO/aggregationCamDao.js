@@ -23,22 +23,32 @@ class AggregationCam {
     this.timeout=null
     
     this.hcInterval=null;
-    this.hcIntervalTime= 1000;
+    this.hcIntervalTime= 10000;
     this.hcIntervalTolerance=100;
     this.normalProcessFlag=false;
     
   }
   async setHCIinterval(){
-    try {
+    
       this.hcInterval=setInterval(async ()=>{
+        try{
+        console.log("checking aggcam")
         const status = await this.getStatus()
         if (status!='Ok'){
           needToReInit.emit("pleaseReInit", "AggCam")
-        }
+          clearTimeout(this.hcInterval)
+        }else{
+          // console.log("agg cam is ok")
+        }}
+       catch (error) {
+        needToReInit.emit("pleaseReInit", "AggCamWS")
+        console.log("agg cam is not ok",error)
+        clearTimeout(this.hcInterval)
+        this.normalOperationFlag=false;
+      }
+
       },this.normalOperationFlag?this.hcIntervalTime+this.hcTimeTolerance:this.hcIntervalTime)
-    } catch (error) {
-      needToReInit.emit("pleaseReInit", "AggCamWS")
-    }
+
   }
   async setCallBack(){
     
@@ -55,7 +65,9 @@ class AggregationCam {
       await this.wscForStatus.sendMessage('get_status');
       
       let timeout = setTimeout(() => {
+        console.log("reject bang")
         reject(`[Agg. Cam] Timeout occurred. No response from websocket`);
+        
         // this.init?.reRun();
       }, 2000);
       this.responseEvent1.once('responseReceived', () => {
@@ -74,16 +86,21 @@ class AggregationCam {
   }
 
   async getData() {
+    clearInterval(this.hcInterval)
     return new Promise(async (resolve, reject) => {
       this.receivedMessages = [];
       await this.wscForData.sendMessage('get_data');
 
       let timeout1 = setTimeout(() => {
+        this.normalOperationFlag=true;
+        this.setHCIinterval()
         reject(`[Agg. Cam] Timeout occurred. No response from websocket`);
       }, 2000);
       
       this.responseEvent.once('responseReceived', () => {
         clearTimeout(timeout1);
+        this.normalOperationFlag=true;
+        this.setHCIinterval()
         resolve();
         // const result = this.mergeResponses(this.receivedMessages);
         // this.receivedMessages = [];
@@ -154,6 +171,8 @@ class AggregationCam {
   }
 
   runAggregateButton() {
+    clearInterval(this.hcInterval)
+    this.setHCIinterval();
     this.aggButton.setShortPressCallback(async () => {
       console.log('[AggCam] Yellow short press detected.');
       this.receivedMessages = [];

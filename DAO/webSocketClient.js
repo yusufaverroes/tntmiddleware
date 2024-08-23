@@ -14,7 +14,9 @@ class WebSocketClient {
       try {
         if(this.ws){
           this.ws.removeAllListeners();
+          this.ws.terminate();
           this.ws.close();
+          
         }
         const url = this.port===null?this.ip:`ws://${this.ip}:${this.port}`;
         console.log("[websocket] url :", url)

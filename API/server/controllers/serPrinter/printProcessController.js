@@ -52,40 +52,41 @@ const startPrinting = async (req, res) => {
     let missingBody=""
     console.log("start printing called by BE")
     console.log("per :" , problematicPeripheral)
-    if (problematicPeripheral){
-      throw new Error (`${problematicPeripheral} is not ready`)
-    }
-    if(req.body.threshold ){
-        if(typeof req.body.threshold  !== 'number' || isNaN(req.body.threshold)){
-            throw new Error ("threshold value must be a number")
-        
-    }else{
-        serialCamera.accuracyThreshold=req.body.threshold
-    }
-    }
-    if(req.body.work_order_id){
-        printingProcess.work_order_id = req.body.work_order_id
-    }else{missingBody="work_order_id"}
-    if(req.body.assignment_id){
-        printingProcess.assignment_id = req.body.assignment_id
-    }else{missingBody=missingBody+" and assignment_id"}
-
-    if (missingBody!=""){
-        return res.status(400).send({message: `Missing mandatory payload in request body. (${missingBody})`})
-    }
-
-    if((req.body.templateName) && req.body.templateName  in printerTemplate){
-        return res.status(404).send({message: `The template Name=${req.body.templateName} does not exist`})
-    }
-    if (printer.isOccupied===true){
-        return res.status(409).send({message: `This printer is occupied for workOrderId=${printingProcess.work_order_id} and assignmentId =${printingProcess.assignment_id}`})
-    }
-
-    if (printer.running===false){
-        console.log("[startPrinting API] Cannot connect to the printer")
-        return res.status(500).send({message: "Cannot connect to the printer" })
-    }
+    
     try {
+      if (problematicPeripheral){
+        throw new Error (`${problematicPeripheral} is not ready`)
+      }
+      if(req.body.threshold ){
+          if(typeof req.body.threshold  !== 'number' || isNaN(req.body.threshold)){
+              throw new Error ("threshold value must be a number")
+          
+      }else{
+          serialCamera.accuracyThreshold=req.body.threshold
+      }
+      }
+      if(req.body.work_order_id){
+          printingProcess.work_order_id = req.body.work_order_id
+      }else{missingBody="work_order_id"}
+      if(req.body.assignment_id){
+          printingProcess.assignment_id = req.body.assignment_id
+      }else{missingBody=missingBody+" and assignment_id"}
+  
+      if (missingBody!=""){
+          return res.status(400).send({message: `Missing mandatory payload in request body. (${missingBody})`})
+      }
+  
+      if((req.body.templateName) && req.body.templateName  in printerTemplate){
+          return res.status(404).send({message: `The template Name=${req.body.templateName} does not exist`})
+      }
+      if (printer.isOccupied===true){
+          return res.status(409).send({message: `This printer is occupied for workOrderId=${printingProcess.work_order_id} and assignmentId =${printingProcess.assignment_id}`})
+      }
+  
+      if (printer.running===false){
+          console.log("[startPrinting API] Cannot connect to the printer")
+          return res.status(500).send({message: "Cannot connect to the printer" })
+      }
         if (await printingProcess.printSetupChecks()==="success"){
             printingProcess.print().then(() =>{})
             console.log("success")

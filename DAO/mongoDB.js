@@ -33,7 +33,7 @@ export default class MongoDB {
                 const serverStatus =  await this.client.db('admin').command({ serverStatus: 1 }); // only for health check, checking if the collection is exist
                 clearTimeout(timeout);
                 if (serverStatus.ok!=1){throw new Error ("[MongdoDB] mongodb is unhealthy")}
-                console.log("[MongdoDB] mongodb is healthy")
+                // console.log("[MongdoDB] mongodb is healthy")
             }, this.normalOperationFlag?this.healthCheckTime+this.healthCheckTimeTolerance:this.healthCheckTime);
             this.normalOperationFlag=false;
             

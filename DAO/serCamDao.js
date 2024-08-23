@@ -120,7 +120,7 @@ export default class serCam {
                     clearTimeout(this.healthCheckTimeout);
                     responseString=responseString.split(",")
                     if(removeSpacesAndNewlines(responseString[2])==="none"){
-                        console.log("[Ser Cam] Status is ok")
+                        // console.log("[Ser Cam] Status is ok")
                     }else{
 
                         console.log("[Ser Cam] Camera error code found : ", responseString[2])

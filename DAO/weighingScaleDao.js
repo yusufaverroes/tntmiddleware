@@ -17,10 +17,13 @@ function sleep(ms) {
 function setHCweightInterval(){
   hcInterval=setInterval(async ()=>{
     try {
+      console.log("HC weigher")
       await readWeight();
     } catch (error) {
+
       if(errorOnReading){
         console.log("[Weighing Scale] the weighing scale is unhealthy");
+        needToReInit.emit("pleaseReInit", "weighingScale")
       }
       
     }
@@ -84,7 +87,7 @@ async function readWeight() {
           if (err) {
             errorOnReading=true;
             release();
-            return reject('Error opening port: ' + err.message);
+            reject('Error opening port: ' + err.message);
           }
           // console.log('[Weiging Scale] Port opened');
         });
@@ -107,7 +110,7 @@ async function readWeight() {
               port.close(() => {
                 errorOnReading=true;
                 release();
-                return reject("too many NaNs");
+                reject("too many NaNs");
               });
             }
           }
@@ -147,9 +150,10 @@ async function readWeight() {
         });
 
       } else {
-        console.log('No matching port found');
+        errorOnReading=true
+        
         release();
-        reject(new Error('No matching port found'));
+        reject('No matching port found');
       }
     } catch (err) {
       errorOnReading=true;
@@ -161,7 +165,8 @@ async function readWeight() {
 }
 
 const readPrinterButton = (button) => {
-  
+  clearInterval(hcInterval)
+  setHCweightInterval()
   button.setShortPressCallback(async () => {
     try {
       console.log("[Label Printer] Label Printer button is pressed.");

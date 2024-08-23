@@ -160,7 +160,7 @@ export default class HealthChecks{
         // setInterval(() => this.sendToWS('AGG_CAM'), this.checkInterval);
       }
        async handleMessageData(message){
-        console.log("[Health Check] got data : ", message)
+        // console.log("[Health Check] got data : ", message)
     
         try {
            await this.webSocketClient.sendMessage( message)

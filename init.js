@@ -4,6 +4,8 @@ import { HttpStatusCode } from "axios";
 import fs from 'fs';
 import {Mutex} from 'async-mutex'
 import { needToReInit } from "./utils/globalEventEmitter.js";
+import * as child from 'node:child_process'
+let wsAndAggTimeOut = null
 const mutex = new Mutex();
 const pipePath = '/tmp/middleware-failsafe-pipe'
 export let problematicPeripheral=null;
@@ -120,6 +122,8 @@ export default class Initialization {
             await this.aggCamWsStatus.connect()
             console.log("[Init] connected to Websocket for status.")  
           }
+          clearTimeout(wsAndAggTimeOut)
+          wsAndAggTimeOut=null;
           await this.aggCam.setCallBack();
           this.state.connectingToWS=false
           this.state.connectingToAggCam=true;
@@ -131,6 +135,14 @@ export default class Initialization {
         }catch(err){
           this.yellowLed.setState('blinkFast')
           this.greenLed.setState('off')
+          if (wsAndAggTimeOut===null){
+            wsAndAggTimeOut=setTimeout(()=>{
+              console.log("RESTARTING WSANDAGG SERVICE")
+              child.exec(`sudo systemctl restart wsAndAgg.service`)
+              wsAndAggTimeOut=null;
+            },60000)
+          }
+          
           console.log('[Init] error occurred: ',err)
           retryDelay=10;
         }

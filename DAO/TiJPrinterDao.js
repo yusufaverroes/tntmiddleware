@@ -63,6 +63,7 @@ export default class TIJPrinter {
             try {
                 if(this.socket){
                     this.socket.removeAllListeners();
+                    this.responseEvent.removeAllListeners();
                     this.socket.destroy();
                     this.socket=null;
                 }
@@ -176,6 +177,7 @@ export default class TIJPrinter {
                 reject("[Printer] Not connected to a printer"); // Reject with error message directly
                 // this.init?.reRun();
                 this.running=false;
+                release()
                 return;
             }
             clearInterval(this.healthCheckInterval)
@@ -399,7 +401,7 @@ export default class TIJPrinter {
                         
                         // Translate P_status
                         let P_status;
-                        switch (statusData[1]) {
+                        switch (statusData[1]) { // TODO : correction on response translations
                             case 0x00:
                                 P_status = "normal";
                                 break;
@@ -412,7 +414,7 @@ export default class TIJPrinter {
                             default:
                                 P_status = "unknown";
                         }
-                        console.log("[Printer] Status is : ", P_status)
+                        // console.log("[Printer] Status is : ", P_status)
             
                         // Translate ink_level
                         const statusByte = statusData[1];
