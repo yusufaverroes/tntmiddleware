@@ -153,9 +153,7 @@ export default class Initialization {
             const AggCamStatus = await this.aggCam.getStatus()
             if (AggCamStatus==='Ok'){
               console.log("[Init] connected aggregation camera") 
-            }
-            
-            this.state.connectingToAggCam = false;
+              this.state.connectingToAggCam = false;
             this.state.connectingToPrinter = true
           if (retryDelay>0){
               retryDelay = 0;
@@ -164,7 +162,17 @@ export default class Initialization {
               this.greenLed.setState('blinkSlow')
 
             }
+            }else{
+              this.yellowLed.setState('blinkFast',2);
+              this.greenLed.setState('off');
+              console.log('[Init] error occurred : agg cam is not connected');
+              retryDelay=10;
+            }
+            
+            
           }catch(err){
+            this.state.connectingToAggCam = false;
+            this.state.connectingToWS = true;
             this.yellowLed.setState('blinkFast',2);
             this.greenLed.setState('off');
             console.log('[Init] error occurred1: ',err);
