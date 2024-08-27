@@ -8,7 +8,7 @@ const pipePath = '/tmp/middleware-failsafe-pipe'
 
 
 const stopPrinting = async (req, res) => {
-    printer.isOccupied=false;
+   
     try {
         fs.open(pipePath, 'w', (err, fd) => {
             if (err) {
@@ -33,6 +33,7 @@ const stopPrinting = async (req, res) => {
         // printingProcess.full_code_queue.clear();
         await printer.send(12)
         console.log("printer is successfully stopped by the BE")
+        printer.isOccupied=false;
         res.status(200).send({message:"printer is successfully stopped"})
     } catch (err) {
         res.status(500).send({error:err})
@@ -88,7 +89,7 @@ const startPrinting = async (req, res) => {
           return res.status(500).send({message: "Cannot connect to the printer" })
       }
         if (await printingProcess.printSetupChecks()==="success"){
-            printingProcess.print().then(() =>{})
+            // printingProcess.print().then(() =>{})
             console.log("success")
             fs.open(pipePath, 'w', (err, fd) => {
                 if (err) {

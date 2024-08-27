@@ -29,7 +29,7 @@ class AggregationCam {
     
   }
   async setHCIinterval(){
-    
+      clearInterval(this.hcInterval)
       this.hcInterval=setInterval(async ()=>{
         try{
         console.log("checking aggcam")

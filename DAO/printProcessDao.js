@@ -1,6 +1,8 @@
 
 import fs from 'fs';
 const pipePath = '/tmp/middleware-failsafe-pipe'
+import {Mutex} from 'async-mutex';
+const mutex = new Mutex();
 
 function dateToYYMMDD (originalDate){
         console.log(originalDate)
@@ -55,8 +57,8 @@ export default class printProcess {
         this.templateName=masterConfig.getConfig('printerProcess').TEMPLATE_NAME;
         this.waitPrint=false
         this.full_code_queue = new Queue()
-        this.sensorTriggered=false;
-        this.expectedBufferCount=0;
+        this.error_full_code_queue = new Queue();
+        this.completion = false;
 
     }
     async getCodeDetails(db) {
@@ -96,50 +98,113 @@ export default class printProcess {
         }
     }
     
-    async getDataBySmallestId(db) {
-        try {
-            if (this.mongoDB.healthCheckInterval){
-                clearInterval(this.mongoDB.healthCheckInterval)
-                this.mongoDB.normalOperationFlag=true;
-            }
-            const timout = setTimeout(()=>{ 
-                
-                throw new Error("timed out on retrieving data from mongoDB")
-                
-            }, 1000)   
-            const result = await db.collection('serialization').aggregate(
-                [
-                    {
-                      '$sort': {
-                        '_id': 1
-                      }
-                    }, {
-                      '$match': {
-                        'status':'SENT_TO_PRINTER', // this.sampling?"SAMPLE_SENT_TO_PRINTER":
-                        'work_order_id': this.work_order_id, 
-                        'assignment_id': this.assignment_id
-                      }
-                    }, {
-                      '$limit': 1
-                    }
-                  ]).toArray();
-                  clearTimeout(timout);
-                  this.mongoDB.setHealthCheck();
-   
-                if (result.length==1){
-                    return {id:result[0]._id,full_code:result[0].full_code,SN:result[0].code}
-                } else {
-                    return false //no code found
+    async getDataBySmallestId(db, maxRetries = 2, retryDelay = 500) {
+        let attempts = 0;
+    
+        while (attempts < maxRetries) {
+            try {
+                if (this.mongoDB.healthCheckInterval) {
+                    clearInterval(this.mongoDB.healthCheckInterval);
+                    this.mongoDB.normalOperationFlag = true;
                 }
-               
-
-        } catch (error) {
-            console.log("[Print Process] error on getting data by smallest id : ", error)
-            this.dbManualHealthCheck()
-
+    
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error("timed out on retrieving data from mongoDB")), 1000)
+                );
+    
+                const queryPromise = db.collection('serialization').aggregate(
+                    [
+                        {
+                            '$sort': {
+                                '_id': 1
+                            }
+                        }, 
+                        {
+                            '$match': {
+                                'status': 'SENT_TO_PRINTER', 
+                                'work_order_id': this.work_order_id, 
+                                'assignment_id': this.assignment_id
+                            }
+                        }, 
+                        {
+                            '$limit': 1
+                        }
+                    ]
+                ).toArray();
+    
+                const result = await Promise.race([queryPromise, timeoutPromise]);
+    
+                this.mongoDB.setHealthCheck();
+    
+                if (result.length === 1) {
+                    return { id: result[0]._id, full_code: result[0].full_code, SN: result[0].code };
+                } else {
+                    return { status: 'no_data_found' }; // No data found in the database
+                }
+    
+            } catch (error) {
+                console.log(`[Print Process] Attempt ${attempts + 1} failed:`, error);
+                attempts++;
+    
+                if (attempts >= maxRetries) {
+                    console.log("[Print Process] Max retries reached. Error on getting data by smallest id:", error);
+                    // this.dbManualHealthCheck();
+                    return { status: 'max_retries_reached', error }; // Max retries reached
+                }
+    
+                // Wait before retrying
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+            }
         }
-        
+    
+        return { status: 'max_retries_reached' }; // Fallback if all retries failed
     }
+    
+    async updateStatus(db, serializationId, status = "PRINTING", maxRetries = 2, retryDelay = 500) {
+        let attempts = 0;
+        if (this.mongoDB.healthCheckInterval){
+            clearInterval(this.mongoDB.healthCheckInterval)
+            this.mongoDB.normalOperationFlag=true;
+        }
+        while (attempts < maxRetries) {
+            try {
+                const timeout = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error("Update operation timed out")), 1000)
+                );
+    
+                const updateOperation = db.collection('serialization').updateOne(
+                    { _id: serializationId }, 
+                    { $set: { status: status } }
+                );
+    
+                const result = await Promise.race([updateOperation, timeout]);
+                this.mongoDB.setHealthCheck();
+                if (result.modifiedCount === 1) {
+                    console.log(`Successfully updated status to '${status}' for document with id: ${serializationId}`);
+                    return { status: 'success', updatedId: serializationId };
+                } else {
+                    console.log(`No document found with id: ${serializationId} to update.`);
+                    return { status: 'not_found', updatedId: serializationId };
+                }
+    
+            } catch (error) {
+                console.log(`[Update Status] Attempt ${attempts + 1} failed:`, error);
+                attempts++;
+    
+                if (attempts >= maxRetries) {
+                    console.log(`[Update Status] Max retries reached. Error updating status for id: ${serializationId}`, error);
+                    return { status: 'max_retries_reached', error };
+                }
+    
+                // Wait before retrying
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+            }
+        }
+    
+        return { status: 'max_retries_reached' }; // Fallback if all retries failed
+    }
+    
+    
     async dbManualHealthCheck() {
         try {
             let timeout = setTimeout(()=>{
@@ -190,7 +255,8 @@ export default class printProcess {
     }
     async printSetupChecks() {
         try {
-            this.expectedBufferCount=0;
+            this.error_full_code_queue.clear();
+            this.completion = 11;
             this.full_code_queue.clear();
             this.details = null
             this.details = await this.getCodeDetails(this.db)
@@ -250,8 +316,7 @@ export default class printProcess {
             console.log("BUF NUM : ",await this.printer.getBufNum())
             this.printer.isOccupied = true;
             this.sensor.setShortPressCallback(()=>{
-                this.sensorTriggered=true;
-                this.expectedBufferCount=this.expectedBufferCount-1
+                this.print3();
             })
             return "success"
         }catch(err){
@@ -260,6 +325,7 @@ export default class printProcess {
         }
     }
     abort(){
+        this.printer.isOccupied=false;
         fs.open(pipePath, 'w', (err, fd) => {
             if (err) {
               console.error('Failed to open named pipe:', err);
@@ -280,59 +346,190 @@ export default class printProcess {
               });
             });
           });
+          this.printer.stopPrint();
+          needToReInit.emit("pleaseReInit", "Printing Process")
+          this.printer.isOccupied=false;
+          
     }
-    async print2(){
-        while (this.printer.isOccupied){
-            if(this.sensorTriggered){
-                this.sensorTriggered=false;
-                
-            
-                let serialization=null
-                try {
-                    serialization = await this.getDataBySmallestId(this.db);
 
-                } catch (error) {
+    async print3(){
+        const release =  await mutex.acquire();
+        console.log("[Printing Process] an object is passing the printer sensor")
+        if (this.printer.isOccupied){
+            console.log("still occupied")
+            if(!this.completion){ 
+                console.log("still not completion")
+            
+                const serialization = await this.getDataBySmallestId(this.db);
+
+                if (serialization.status === 'no_data_found') {
+                    console.log("[Printing Process] entering completion phase");
+                    this.completion=true;
+                    
+                } else if (serialization.status === 'max_retries_reached') {
+                    console.error("[Printing Process] Aborting...Failed to retrieve data after maximum retries:", result.error);
+                    this.abort();
+                    release();
+                    return false;
+                } else {
+                    console.log("[Printing Process] Data retrieved:", serialization.SN);
+                
                     try {
-                        serialization = await this.getDataBySmallestId(this.db);
-                        
+                        P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code])
+                        if (P_status==="now full" ||P_status==="no errors"  ){
+                            if (!this.error_full_code_queue.isEmpty() && P_status==="now full"){
+                                const error_full_code = this.error_full_code_queue.dequeue()
+                                this.full_code_queue.enqueue(error_full_code)
+                            }else if(!this.error_full_code_queue.isEmpty() && P_status==="no errors"){
+                                console.log("[Printing Process] the previous error code was not entered to buffer")
+                                this.error_full_code_queue.dequeue();
+                            }
+                            this.full_code_queue.enqueue(serialization.full_code)
+                            const updateResult = await this.updateStatus(this.db, serialization.id);
+                            if (updateResult.status === 'success') {
+                                console.log("Status updated successfully.");
+                            } else if (updateResult.status === 'not_found') {
+                                console.log("Document not found, no status update performed.");
+                                this.abort();
+                                release();
+                                return false;
+                            } else if (updateResult.status === 'max_retries_reached') {
+                                console.error("Failed to update status after maximum retries:", updateResult.error);
+                                this.abort();
+                                release();
+                                return false;
+                            }
+                        }
                     } catch (error) {
-                        try {
-                            serialization = await this.getDataBySmallestId(this.db);
-                        } catch (error) {
-                            console.log("error on getting small data from db, aborting...")
+                        console.log("[Printing Process] an error occured on pushing data to buffer", error)
+                        const updateResult = await this.updateStatus(this.db, serialization.id, "ERROR_OCCURED");
+                        if (updateResult.status === 'success') {
+                            console.log("Status updated successfully.");
+                        } else if (updateResult.status === 'not_found') {
+                            console.log("Document not found, no status update performed.");
                             this.abort();
-                            return;
+                            release();
+                            return false;
+                        } else if (updateResult.status === 'max_retries_reached') {
+                            console.error("Failed to update status after maximum retries:", updateResult.error);
+                            this.abort();
+                            release();
+                            return false;
                         }
                     }
-                }
-                
-                let P_status = null;
-                try {
-                    P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code])
-                } catch (error) {
-                    try {
                         
-                    } catch (error) {
-                        
-                    }
                 }
-                let updateTimeOut = setTimeout(()=>{
-                    this.dbManualHealthCheck()
-                },1000)
-                
-                await this.db.collection('serialization')
-                .updateOne( { _id: serialization.id}, 
-                { $set: { status : "PRINTING"} } // update the status of the printed code upon pusing to buffer 
-                )
-                clearTimeout(updateTimeOut)
-                this.full_code_queue.enqueue(serialization.full_code)
-                const printed = this.full_code_queue.dequeue();
-                await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
-                full_code:printed,
-                })
             }
+            try {
+                const printed = this.full_code_queue.dequeue();
+                if(this.full_code_queue.isEmpty()){
+                    fs.open(pipePath, 'w', (err, fd) => {
+                        if (err) {
+                          console.error('Failed to open named pipe:', err);
+                          return;
+                        }
+                      
+                        fs.write(fd, 'off', (err) => {
+                          if (err) {
+                            console.error('Failed to write to named pipe:', err);
+                          } else {
+                            console.log('Message sent: off');
+                          }
+                      
+                          fs.close(fd, (err) => {
+                            if (err) {
+                              console.error('Failed to close named pipe:', err);
+                            }
+                          });
+                        });
+                      });
+                    await this.printer.clearBuffers()
+                    await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
+                        full_code:printed,
+                    }) 
+                    this.printer.isOccupied=false
+                    console.log(`[Printing Process] printing process with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id} is completed! $`)
+                    
+                    await this.printer.stopPrint();
+                    await postDataToAPI('v1/work-order/active-job/complete-print',{})  
+                }else{
+                    await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
+                        full_code:printed,
+                    }) 
+                }
+               
+            } catch (error) {
+                console.log("[Printing Process] error on update to API", error)
+            }
+            
         }
+        release();
     }
+
+    // async print2(){
+    //     while (this.printer.isOccupied){
+    //         if(this.sensorTriggered){
+    //             this.sensorTriggered=false;
+                
+            
+    //             let serialization=null
+    //             try {
+    //                 serialization = await this.getDataBySmallestId(this.db);
+
+    //             } catch (error) {
+    //                 try {
+    //                     serialization = await this.getDataBySmallestId(this.db);
+                        
+    //                 } catch (error) {
+    //                     try {
+    //                         serialization = await this.getDataBySmallestId(this.db);
+    //                     } catch (error) {
+    //                         console.log("error on getting small data from db, aborting...")
+    //                         this.abort();
+    //                         return;
+    //                     }
+    //                 }
+    //             }
+                
+    //             let P_status = null;
+    //             let bufferCount=0;
+    //             try {
+    //                 P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code])
+    //             } catch (error) {
+    //                 try {
+    //                     bufferCount= await this.printer.getBufNum()
+    //                 } catch (error) {
+    //                     try {
+    //                         bufferCount= await this.printer.getBufNum()
+    //                     } catch (error) {
+    //                         try {
+    //                             bufferCount= await this.printer.getBufNum()
+    //                         } catch (error) {
+    //                             this.abort();
+    //                             return;
+    //                         }
+    //                     }
+                        
+    //                 }
+    //             }
+                
+    //             let updateTimeOut = setTimeout(()=>{
+    //                 this.dbManualHealthCheck()
+    //             },1000)
+                
+    //             await this.db.collection('serialization')
+    //             .updateOne( { _id: serialization.id}, 
+    //             { $set: { status : "PRINTING"} } // update the status of the printed code upon pusing to buffer 
+    //             )
+    //             clearTimeout(updateTimeOut)
+    //             this.full_code_queue.enqueue(serialization.full_code)
+    //             const printed = this.full_code_queue.dequeue();
+    //             await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
+    //             full_code:printed,
+    //             })
+    //         }
+    //     }
+    // }
 
     async print(){ 
         let delayTime=2500; // initial delay time

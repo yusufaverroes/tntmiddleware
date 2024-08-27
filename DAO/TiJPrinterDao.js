@@ -137,7 +137,7 @@ export default class TIJPrinter {
 
     handleUnsolicitedResponse(response) {
         this.printCount++;
-        console.log(`print response: ${response.toString('utf8')}, PC: ${this.printCount}`);
+        // console.log(`print response: ${response.toString('utf8')}, PC: ${this.printCount}`);
          if (this.printCallback) {
         
         this.printCallback();
