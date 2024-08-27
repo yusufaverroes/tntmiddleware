@@ -38,11 +38,12 @@ import { clearInterval } from 'timers';
 import { clear, time } from 'console';
 import { needToReInit } from '../utils/globalEventEmitter.js';
 export default class printProcess {
-    constructor(printer, mongoDB) {
+    constructor(printer, mongoDB, sensor) {
         this.printer = printer;
         this.fileNames = [];
         this.mongoDB=mongoDB
         this.db=this.mongoDB.db
+        this.sensor= sensor;
         // console.log(db)
         this.work_order_id=null
         this.assignment_id=null
@@ -54,6 +55,8 @@ export default class printProcess {
         this.templateName=masterConfig.getConfig('printerProcess').TEMPLATE_NAME;
         this.waitPrint=false
         this.full_code_queue = new Queue()
+        this.sensorTriggered=false;
+        this.expectedBufferCount=0;
 
     }
     async getCodeDetails(db) {
@@ -187,6 +190,7 @@ export default class printProcess {
     }
     async printSetupChecks() {
         try {
+            this.expectedBufferCount=0;
             this.full_code_queue.clear();
             this.details = null
             this.details = await this.getCodeDetails(this.db)
@@ -225,6 +229,7 @@ export default class printProcess {
             while (serialization && (P_status === "no errors" || P_status=== "still full")){ // filling up the buffer first
                 
                 P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) // goes to printer buffer
+                this.expectedBufferCount++;
                 let updateTimeOut = setTimeout(()=>{
                     this.dbManualHealthCheck()
                 },1000)
@@ -244,10 +249,88 @@ export default class printProcess {
             }
             console.log("BUF NUM : ",await this.printer.getBufNum())
             this.printer.isOccupied = true;
+            this.sensor.setShortPressCallback(()=>{
+                this.sensorTriggered=true;
+                this.expectedBufferCount=this.expectedBufferCount-1
+            })
             return "success"
         }catch(err){
             console.log(err)
             return err
+        }
+    }
+    abort(){
+        fs.open(pipePath, 'w', (err, fd) => {
+            if (err) {
+              console.error('Failed to open named pipe:', err);
+              return;
+            }
+          
+            fs.write(fd, 'off', (err) => {
+              if (err) {
+                console.error('Failed to write to named pipe:', err);
+              } else {
+                console.log('Message sent: off');
+              }
+          
+              fs.close(fd, (err) => {
+                if (err) {
+                  console.error('Failed to close named pipe:', err);
+                }
+              });
+            });
+          });
+    }
+    async print2(){
+        while (this.printer.isOccupied){
+            if(this.sensorTriggered){
+                this.sensorTriggered=false;
+                
+            
+                let serialization=null
+                try {
+                    serialization = await this.getDataBySmallestId(this.db);
+
+                } catch (error) {
+                    try {
+                        serialization = await this.getDataBySmallestId(this.db);
+                        
+                    } catch (error) {
+                        try {
+                            serialization = await this.getDataBySmallestId(this.db);
+                        } catch (error) {
+                            console.log("error on getting small data from db, aborting...")
+                            this.abort();
+                            return;
+                        }
+                    }
+                }
+                
+                let P_status = null;
+                try {
+                    P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code])
+                } catch (error) {
+                    try {
+                        
+                    } catch (error) {
+                        
+                    }
+                }
+                let updateTimeOut = setTimeout(()=>{
+                    this.dbManualHealthCheck()
+                },1000)
+                
+                await this.db.collection('serialization')
+                .updateOne( { _id: serialization.id}, 
+                { $set: { status : "PRINTING"} } // update the status of the printed code upon pusing to buffer 
+                )
+                clearTimeout(updateTimeOut)
+                this.full_code_queue.enqueue(serialization.full_code)
+                const printed = this.full_code_queue.dequeue();
+                await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
+                full_code:printed,
+                })
+            }
         }
     }
 

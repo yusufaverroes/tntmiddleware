@@ -61,6 +61,10 @@ const greenButton = new Button(process.env.LABEL_PRINTER_INPUT_PIN)
 const yellowLed = new LED(process.env.AGGREGARTE_BUTTON_LIGHT_OUTPUT_PIN)
 const greenLed = new LED(process.env.LABEL_PRINTER_BUTTON_LIGHT_OUTPUT_PIN)
 
+const printerSensor = new LED(14)
+
+
+
 const rejector = new Rejector(rejectorActuator) //instancing Rejector class
 
 const serialCamera =  new serCam(process.env.SERIALIZATION_CAM_IP,process.env.SERIALIZATION_CAM_PORT, rejector); //instancing serCam class for serialization Camera
@@ -112,7 +116,7 @@ console.log("Initialization is completed !")
 // const inks = await printer.requestInkRemains()
 // console.log(inks[0]);
 
-const printingProcess = new printProcess(printer, mongoDB) // instancing printing process class with printer and mongoDB instances as the constructor
+const printingProcess = new printProcess(printer, mongoDB, printerSensor) // instancing printing process class with printer and mongoDB instances as the constructor
 console.log(`test master : ${printingProcess.templateName}`)
 await healthChecksWs.connect();
 const healthChecks = new HealthChecks(printer, serialCamera,aggCam, healthChecksWs);
