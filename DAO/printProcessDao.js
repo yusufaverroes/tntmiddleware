@@ -60,6 +60,11 @@ export default class printProcess {
         this.error_full_code_queue = new Queue();
         this.completion = false;
 
+        this.serializationQueue1= new Queue();
+        this.serializationQueue2= new Queue();
+
+        this.lastSerId=null;
+        
     }
     async getCodeDetails(db) {
         try {
@@ -159,6 +164,7 @@ export default class printProcess {
     
         return { status: 'max_retries_reached' }; // Fallback if all retries failed
     }
+
     
     async updateStatus(db, serializationId, status = "PRINTING", maxRetries = 2, retryDelay = 500) {
         let attempts = 0;
@@ -203,6 +209,88 @@ export default class printProcess {
     
         return { status: 'max_retries_reached' }; // Fallback if all retries failed
     }
+    async  fetchDataStartingFromId(db, startingId, maxResults = 10) {
+        let results = [];
+        let currentId = startingId;
+        let attempts = 0;
+        const maxRetries = 1;
+        const retryDelay = 1000;
+        console.log("fetching data after id : ", startingId)
+        while (attempts < maxRetries) {
+            try {
+                if (this.mongoDB.healthCheckInterval) {
+                    clearInterval(this.mongoDB.healthCheckInterval);
+                    this.mongoDB.normalOperationFlag = true;
+                }
+                // Adjusted query to start fetching data from the next available ID after the inputted startingId
+                const limit = maxResults
+                console.log(`Fetching new List GT: ${currentId} with limit ${limit}`)
+                const queryPromise = db.collection('serialization').aggregate(
+                    [
+                        {
+                            '$match': {
+                                '_id': { '$gt': currentId }, // Fetch IDs greater than the startingId
+                                'status': 'SENT_TO_PRINTER', 
+                                'work_order_id': this.work_order_id, 
+                                'assignment_id': this.assignment_id
+                            }
+                        },
+                        {
+                            '$sort': {
+                                '_id': 1
+                            }
+                        }, 
+                        {
+                            '$limit':limit 
+                        }
+                    ]
+                ).toArray();
+        
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error("timed out on retrieving data from mongoDB")), 1000)
+                );
+    
+                const queryResult = await Promise.race([queryPromise, timeoutPromise]);
+    
+                if (queryResult.length > 0) {
+                    // Push results to the list and update currentId to the last fetched _id
+                    results.push(...queryResult.map(item => ({
+                        id: item._id,
+                        full_code: item.full_code,
+                        SN: item.code
+                    })));
+                    
+                    currentId = queryResult[queryResult.length - 1]._id;
+                    this.lastSerId=currentId
+                    break;
+                } else {
+                    // If no data found, exit the loop
+                    console.log('No more data available starting from the given ID.');
+                    break;
+                }
+            } catch (error) {
+                console.log(`[Fetch Data] Attempt ${attempts + 1} failed:`, error);
+                attempts++;
+        
+                if (attempts >= maxRetries) {
+                    console.log("[Fetch Data] Max retries reached. Exiting the loop.");
+                    return { status: 'max_retries_reached', error };
+
+                }
+        
+                // Wait before retrying
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+            }
+        }
+    
+        if (results.length === 0) {
+            
+            return { status: 'no_data_found' };
+        }
+        this.mongoDB.setHealthCheck()
+    
+        return { status: 'success', data: results };
+    }
     
     
     async dbManualHealthCheck() {
@@ -219,6 +307,26 @@ export default class printProcess {
             console.log("[Print Process] Error out occured while trying to do health check manually ",error)
         }
         
+    }
+    async processAndEnqueueData(db, startingId, queue) {
+        // Fetch the data starting from a specific ID
+        
+        const fetchResult = await this.fetchDataStartingFromId(db, startingId);
+    
+        if (fetchResult.status === 'success') {
+            // Enqueue each serialization data object into the queue
+            fetchResult.data.forEach(serialization => {
+                queue.enqueue(serialization);
+            });
+            console.log("[Printing Process] Data enqueued successfully.");
+        } else if (fetchResult.status === 'no_data_found') {
+            console.log("[Printing Process] No data found to enqueue.");
+            this.serializationQueue2.clear()
+            this.completion=true;
+        } else if (fetchResult.status === 'max_retries_reached') {
+            console.error("[Printing Process] Failed to fetch data after maximum retries.");
+            this.abort()
+        }
     }
     // async getSmallestId(db) {
     //     const result = await db.collection('serialization').findOne(
@@ -256,7 +364,9 @@ export default class printProcess {
     async printSetupChecks() {
         try {
             this.error_full_code_queue.clear();
-            this.completion = 11;
+            this.serializationQueue1.clear();
+            this.serializationQueue2.clear();
+            this.completion = false;
             this.full_code_queue.clear();
             this.details = null
             this.details = await this.getCodeDetails(this.db)
@@ -306,6 +416,8 @@ export default class printProcess {
                             { $set: { status : this.sampling?"SAMPLING":"PRINTING", update_at: Date.now()} } // update the status of the printed code upon pusing to buffer 
                             )
                 this.full_code_queue.enqueue(serialization.full_code)
+                // this.serializationQueue1.enqueue(serialization)
+                this.lastSerId = serialization.id
                 clearTimeout(updateTimeOut)
                 serialization = await this.getDataBySmallestId(this.db)
                 if (P_status === "now full"){
@@ -313,10 +425,17 @@ export default class printProcess {
                     break;
                 }
             }
+            // await this.processAndEnqueueData(this.db,this.lastSerId,this.serializationQueue1)
+            await this.processAndEnqueueData(this.db,this.lastSerId,this.serializationQueue2)
             console.log("BUF NUM : ",await this.printer.getBufNum())
             this.printer.isOccupied = true;
-            this.sensor.setShortPressCallback(()=>{
+            this.sensor.setShortPressCallback( ()=> {
+                // console.log(this, this.print3)
+                this.printer.aBoxIsPrintedCompletely=false;
                 this.print3();
+            })
+            this.sensor.setFallingEdgeCallback(()=> {
+                this.printer.aBoxIsPrintedCompletely=true;
             })
             return "success"
         }catch(err){
@@ -324,8 +443,10 @@ export default class printProcess {
             return err
         }
     }
-    abort(){
-        this.printer.isOccupied=false;
+    async abort(){
+        while(this.printer.aBoxIsPrintedCompletely=false){
+            await new Promise(resolve => setTimeout(resolve, 100))
+        }
         fs.open(pipePath, 'w', (err, fd) => {
             if (err) {
               console.error('Failed to open named pipe:', err);
@@ -351,7 +472,6 @@ export default class printProcess {
           this.printer.isOccupied=false;
           
     }
-
     async print3(){
         const release =  await mutex.acquire();
         console.log("[Printing Process] an object is passing the printer sensor")
@@ -423,6 +543,134 @@ export default class printProcess {
             try {
                 const printed = this.full_code_queue.dequeue();
                 if(this.full_code_queue.isEmpty()){
+                    while(this.printer.aBoxIsPrintedCompletely=false){
+                        await new Promise(resolve => setTimeout(resolve, 100))
+                    }
+                    fs.open(pipePath, 'w', (err, fd) => {
+                        if (err) {
+                          console.error('Failed to open named pipe:', err);
+                          return;
+                        }
+                      
+                        fs.write(fd, 'off', (err) => {
+                          if (err) {
+                            console.error('Failed to write to named pipe:', err);
+                          } else {
+                            console.log('Message sent: off');
+                          }
+                      
+                          fs.close(fd, (err) => {
+                            if (err) {
+                              console.error('Failed to close named pipe:', err);
+                            }
+                          });
+                        });
+                      });
+                    await this.printer.clearBuffers()
+                    await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
+                        full_code:printed,
+                    }) 
+                    this.printer.isOccupied=false
+                    console.log(`[Printing Process] printing process with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id} is completed! $`)
+                    
+                    await this.printer.stopPrint();
+                    await postDataToAPI('v1/work-order/active-job/complete-print',{})  
+                }else{
+                    await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 
+                        full_code:printed,
+                    }) 
+                }
+               
+            } catch (error) {
+                console.log("[Printing Process] error on update to API", error)
+            }
+            
+        }
+        release();
+    }
+
+   
+    async print4(){
+        const release =  await mutex.acquire();
+        console.log("[Printing Process] an object is passing the printer sensor")
+        if (this.printer.isOccupied){
+            // console.log("still occupied")
+            if(!this.completion){ 
+                // console.log("still not completion")
+                let refillFlag= false;
+                if(this.serializationQueue1.isEmpty()){
+                    console.log("filling up ser queue")
+                    console.time('Spread Operator');
+                    this.serializationQueue1.copy(this.serializationQueue2);
+                    console.timeEnd('Spread Operator');
+                    this.serializationQueue2.clear()
+                    refillFlag=true;
+                    this.processAndEnqueueData(this.db,this.lastSerId,this.serializationQueue2)
+                }
+                console.log("queue1 size",this.serializationQueue1)
+                if (this.serializationQueue1.size()<10 && refillFlag===true) {
+                    console.log("[Printing Process] entering completion phase");
+                    this.completion=true;
+                    
+                    
+
+                } else {
+                    let serialization=this.serializationQueue1.dequeue()
+                    console.log("[Printing Process] Data retrieved:", serialization);
+                
+                    try {
+                        P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code])
+                        if (P_status==="now full" ||P_status==="no errors"  ){
+                            if (!this.error_full_code_queue.isEmpty() && P_status==="now full"){
+                                const error_full_code = this.error_full_code_queue.dequeue()
+                                this.full_code_queue.enqueue(error_full_code)
+                            }else if(!this.error_full_code_queue.isEmpty() && P_status==="no errors"){
+                                console.log("[Printing Process] the previous error code was not entered to buffer")
+                                this.error_full_code_queue.dequeue();
+                            }
+                            this.full_code_queue.enqueue(serialization.full_code)
+                            const updateResult = await this.updateStatus(this.db, serialization.id);
+                            if (updateResult.status === 'success') {
+                                console.log("Status updated successfully.");
+                            } else if (updateResult.status === 'not_found') {
+                                console.log("Document not found, no status update performed.");
+                                this.abort();
+                                release();
+                                return false;
+                            } else if (updateResult.status === 'max_retries_reached') {
+                                console.error("Failed to update status after maximum retries:", updateResult.error);
+                                this.abort();
+                                release();
+                                return false;
+                            }
+                        }
+                    } catch (error) {
+                        console.log("[Printing Process] an error occured on pushing data to buffer", error)
+                        this.error_full_code_queue.enqueue(serialization.full_code)
+                        const updateResult = await this.updateStatus(this.db, serialization.id, "ERROR_OCCURED");
+                        if (updateResult.status === 'success') {
+                            console.log("Status updated successfully.");
+                        } else if (updateResult.status === 'not_found') {
+                            console.log("Document not found, no status update performed.");
+                            this.abort();
+                            release();
+                            return false;
+                        } else if (updateResult.status === 'max_retries_reached') {
+                            console.error("Failed to update status after maximum retries:", updateResult.error);
+                            this.abort();
+                            release();
+                            return false;
+                        }
+                    }
+                        
+                }
+            }
+            try {
+                const printed = this.full_code_queue.dequeue();
+                if(this.full_code_queue.isEmpty()){
+                    while(this.printer.aBoxIsPrintedCompletely=false){
+                        await new Promise(resolve => setTimeout(resolve, 100))
+                    }
                     fs.open(pipePath, 'w', (err, fd) => {
                         if (err) {
                           console.error('Failed to open named pipe:', err);

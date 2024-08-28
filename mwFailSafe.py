@@ -30,7 +30,7 @@ gpio_line.request(consumer="LED", type=GPIO.LINE_REQ_DIR_OUT)
 # Initial status (None indicates we haven't checked yet)
 previous_status = None
 
-
+middlewareIsOk=False
 
 def check_middleware_status():
     try:
@@ -50,33 +50,44 @@ def set_gpio_signal(is_running):
     if is_running:
         # Apply low signal if middleware is running (activate printer sensor)
         print("Middle Ware is normal")
-        gpio_line.set_value(0)
+        # gpio_line.set_value(0)
+        middlewareIsOk=True
         
     else:
         # Apply high signal if middleware is not running (deactivate printer sensor)
         print("Something bad is occured on middleware")
-        gpio_line.set_value(1)
+        middlewareIsOk=True
+        # gpio_line.set_value(1)
         
 
 try:
     print("failsafe is started")
+    
     while True:
         middleware_running = check_middleware_status()
         # Only change GPIO signal if status has changed
-        if middleware_running != previous_status:
-            set_gpio_signal(middleware_running)
-            previous_status = middleware_running
-        with open(pipe_path, 'r') as pipe:
-            message = pipe.read()
-            if message:
-                if message=="on":
-                    gpio_line.set_value(0)
-                    print("sensor is activated by middleware")
-                elif message=="off":
-                    gpio_line.set_value(1)
-                    print("sensor is deactivated by middleware")
-                
-        time.sleep(1)
+        # if middleware_running != previous_status:
+        #     set_gpio_signal(middleware_running)
+        #     previous_status = middleware_running
+
+        if middleware_running == False and gpio_line.get_value()==0:
+            print("Something bad is occured on middleware and the sensor is on, turning it off")
+            # middlewareIsOk=True
+            gpio_line.set_value(1)
+        elif middleware_running:
+            # print("middleware is running")
+            with open(pipe_path, 'r') as pipe:
+                message = pipe.read()
+                if message:
+                    if message=="on" and gpio_line.get_value()==1: 
+                        gpio_line.set_value(0)
+                        print("sensor is activated by middleware")
+                    elif message=="off" and gpio_line.get_value()==0:
+                        gpio_line.set_value(1)
+                        # print(time.time_ns() )
+                        print("sensor is deactivated by middleware")
+                    
+        time.sleep(0.2)
 except KeyboardInterrupt:
     pass
 

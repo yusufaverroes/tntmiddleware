@@ -6,6 +6,16 @@ import {Mutex} from 'async-mutex';
 
 import { needToReInit } from '../utils/globalEventEmitter.js';
 
+import { exec } from 'child_process';
+
+
+
+// // Example usage
+// pingIP('8.8.8.8')
+//   .then(response => console.log(response))
+//   .catch(error => console.error(error));
+
+
 const mutex = new Mutex();
 let sendFlag=false;
 
@@ -45,17 +55,48 @@ export default class TIJPrinter {
         this.hcTimeTolerance= 500;
         this.healthCheckInterval =null;
 
+        this.aBoxIsPrintedCompletely=true;
+
         this.ESC = '1B';
         this.STX = '02';
         this.EXT = '03';
     }
 
+     pingIP(ipAddress=this.ip) {
+        return new Promise((resolve, reject) => {
+          const command = `ping -c 1 -W 1 ${ipAddress}`;
+      
+          exec(command, (error, stdout, stderr) => {
+            if (error) {
+              reject(`Ping failed: ${stderr}`);
+            } else if (stdout.includes('1 packets transmitted, 1 received')) {
+              resolve(`Ping to ${ipAddress} successful`);
+            } else {
+              reject(`Ping to ${ipAddress} failed`);
+            }
+          });
+        });
+      };
+
     setPrintCallBack(callback) {
         this.printCallback = callback
     }
 
+    // setHealthCheckInterval(){
+    //     this.healthCheckInterval= setInterval(() => this.requestPrinterStatus(), sendFlag?this.hcTimekInterval+this.hcTimeTolerance:this.hcTimekInterval)
+    //     sendFlag=false;
+    // }
     setHealthCheckInterval(){
-        this.healthCheckInterval= setInterval(() => this.requestPrinterStatus(), sendFlag?this.hcTimekInterval+this.hcTimeTolerance:this.hcTimekInterval)
+        this.healthCheckInterval= setInterval(() => {
+            this.pingIP()
+                .then(response => console.log(response))
+  .             catch(error => {
+                needToReInit.emit("pleaseReInit", "Printer")
+                this.disconnect();
+                clearInterval(this.healthCheckInterval)
+                console.log("[Printer] printer is not healthy : ",error)});
+        }
+        , sendFlag?this.hcTimekInterval+this.hcTimeTolerance:this.hcTimekInterval)
         sendFlag=false;
     }
     connect() {

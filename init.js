@@ -54,6 +54,9 @@ export default class Initialization {
   }
   async run(){
     let end = false 
+    while(!this.printer.aBoxIsPrintedCompletely){
+      await sleep(0.1)
+    }
     fs.open(pipePath, 'w', (err, fd) => {
       if (err) {
         console.error('Failed to open named pipe:', err);
@@ -303,26 +306,26 @@ export default class Initialization {
           this.state.rejectorCheck=false;
           this.aggCam.runAggregateButton();
           weighingScaleDao.readPrinterButton(this.greenButton);
-          fs.open(pipePath, 'w', (err, fd) => {
-            if (err) {
-              console.error('Failed to open named pipe:', err);
-              return;
-            }
+          // fs.open(pipePath, 'w', (err, fd) => {
+          //   if (err) {
+          //     console.error('Failed to open named pipe:', err);
+          //     return;
+          //   }
           
-            fs.write(fd, 'on', (err) => {
-              if (err) {
-                console.error('Failed to write to named pipe:', err);
-              } else {
-                console.log('Message sent: on');
-              }
+          //   fs.write(fd, 'on', (err) => {
+          //     if (err) {
+          //       console.error('Failed to write to named pipe:', err);
+          //     } else {
+          //       console.log('Message sent: on');
+          //     }
           
-              fs.close(fd, (err) => {
-                if (err) {
-                  console.error('Failed to close named pipe:', err);
-                }
-              });
-            });
-          });
+          //     fs.close(fd, (err) => {
+          //       if (err) {
+          //         console.error('Failed to close named pipe:', err);
+          //       }
+          //     });
+          //   });
+          // });
       
           
           

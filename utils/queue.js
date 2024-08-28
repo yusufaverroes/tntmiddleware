@@ -8,7 +8,12 @@ export default class Queue {
       this.items.push(element);
       
     }
-  
+    copy(newQueue){
+      console.log("new queue" ,newQueue)
+      for (let i=0; i < newQueue.size(); i++){
+        this.items.push(newQueue[i]);
+      }
+    }
     // Remove an element from the queue
     dequeue() {
       if (this.isEmpty()) {

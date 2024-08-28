@@ -96,11 +96,14 @@ async function readWeight() {
         const maxReadings = 5;
         let idx = 0;
         let nanCount = 0;
-
+        let timeout=setTimeout(()=>{
+          reject("no data is readable")
+        },500)
         parser.on('data', data => {
           const weight = parseFloat(data.trim());
           // console.log('Data:', weight);
-
+          errorOnReading=true;
+          clearTimeout(timeout);
           if (!isNaN(weight)) {
             readings.push(weight);
             idx++;
