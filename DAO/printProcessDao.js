@@ -416,7 +416,7 @@ export default class printProcess {
                             { $set: { status : this.sampling?"SAMPLING":"PRINTING", update_at: Date.now()} } // update the status of the printed code upon pusing to buffer 
                             )
                 this.full_code_queue.enqueue(serialization.full_code)
-                // this.serializationQueue1.enqueue(serialization)
+                this.serializationQueue1.enqueue(serialization)
                 this.lastSerId = serialization.id
                 clearTimeout(updateTimeOut)
                 serialization = await this.getDataBySmallestId(this.db)
@@ -472,7 +472,7 @@ export default class printProcess {
           this.printer.isOccupied=false;
           
     }
-    async print3(){
+    async print4(){
         const release =  await mutex.acquire();
         console.log("[Printing Process] an object is passing the printer sensor")
         if (this.printer.isOccupied){
@@ -590,7 +590,7 @@ export default class printProcess {
     }
 
    
-    async print4(){
+    async print3(){
         const release =  await mutex.acquire();
         console.log("[Printing Process] an object is passing the printer sensor")
         if (this.printer.isOccupied){
@@ -601,13 +601,19 @@ export default class printProcess {
                 if(this.serializationQueue1.isEmpty()){
                     console.log("filling up ser queue")
                     console.time('Spread Operator');
-                    this.serializationQueue1.copy(this.serializationQueue2);
+                    console.log("Queue 2 size ", this.serializationQueue2.size())
+                    console.log("queue2 before deq :",this.serializationQueue2)
+                    const queueLen = this.serializationQueue2.size();
+                    for(let i =0 ; i<queueLen ;i++){
+                        this.serializationQueue1.enqueue(this.serializationQueue2.dequeue())
+                    }
+                    // console.log("queue2 after dqe :",this.serializationQueue2)
                     console.timeEnd('Spread Operator');
                     this.serializationQueue2.clear()
                     refillFlag=true;
                     this.processAndEnqueueData(this.db,this.lastSerId,this.serializationQueue2)
                 }
-                console.log("queue1 size",this.serializationQueue1)
+                console.log("queue1 after copy :",this.serializationQueue1)
                 if (this.serializationQueue1.size()<10 && refillFlag===true) {
                     console.log("[Printing Process] entering completion phase");
                     this.completion=true;

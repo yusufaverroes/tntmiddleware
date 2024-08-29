@@ -56,10 +56,10 @@ export default class Rejection {
     //         this.running = false; // Set running flag to false when finished
     //     }
     // }
-    async reject(){
+    async reject(waitTime=242){
         // await sleep(this.waitDelay);
         // await sleep(200); // Rizal Delay 1
-        await sleep(242); // Rizal 2nd Delay 1
+        await sleep(waitTime); // Rizal 2nd Delay 1
         // console.log("Rejector delay value:" + this.waitDelay); // Rizal added wait delay print
         this.switch1.setValue(0);
         // await sleep(this.rejectDelay);

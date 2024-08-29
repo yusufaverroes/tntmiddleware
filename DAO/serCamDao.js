@@ -2,7 +2,11 @@ import net from 'net';
 import {postDataToAPI} from '../API/APICall/apiCall.js'
 import { printingProcess } from '../index.js';
 import { needToReInit } from '../utils/globalEventEmitter.js';
-
+import { EventEmitter } from 'events';
+import pkg from 'node-libgpiod';
+const { version, Chip, Line } = pkg;
+// import { eventNames } from 'process';
+import { clear } from 'console';
 function removeSpacesAndNewlines(inputString) {
     return inputString.replace(/\s+/g, '');
 }
@@ -18,13 +22,104 @@ export default class serCam {
         this.rejector= rejector;
         this.accuracyThreshold =0.0 // need discussion
         this.active=false
-
+        // this.sensor = sensor;
+        this.rejection = new EventEmitter()
         this.hcTimeInterval = 10000;
         this.hcTimeTolerance= 500;
         this.healthCheckInterval=null;
         this.healthCheckTimeout=null;
-    }
+        this.sensorReadingInterval=null;
+        // this.setSensorCallBack();
 
+        this.chip = new Chip(4);
+        this.line = new Line(this.chip, 5);
+        this.line.requestInputMode();
+
+        this.setIntervalSensorReading(50);
+        
+        
+        this.rejectTimeOut=null
+
+       
+        
+
+
+    }
+    setIntervalSensorReading(timeInterval){
+        this.sensorReadingInterval = setInterval(()=>{
+            if(this.line.getValue()===1){
+                
+                clearTimeout(this.rejectTimeOut)
+                clearInterval(this.sensorReadingInterval)
+                this.rejection.removeAllListeners()
+                console.log("sensor triggered")
+                this.rejectTimeOut = setTimeout( async ()=>{
+                    console.log("rejector got time out")
+                    await this.rejector.reject(0)
+                    // await postDataToAPI(`v1/work-order/${printingProcess.work_order_id}/assignment/${printingProcess.assignment_id}/serialization/validate`,{ 
+                    //     accuracy:0,
+                    //     status:"rejected",
+                    //     code:null,
+                    //     reason:"CAM_ERROR",
+                    //     event_time:Date.now()
+                    // }) 
+                    this.rejection.removeAllListeners()
+                    this.setIntervalSensorReading(50);
+                }, 254)
+                this.rejection.once("reject", async ()=>{
+                    
+                    await this.rejector.reject()
+                    console.log("[Rejector] an object is rejected")
+                    this.rejection.removeAllListeners()
+                    this.setIntervalSensorReading(50);
+                })
+                this.rejection.once("pass", async ()=>{
+                    console.log("[Rejector] an object is passed")
+                    this.rejection.removeAllListeners()
+                    while(this.line.getValue()===1){
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                    }
+                    this.setIntervalSensorReading(50);
+                    
+                    
+                })
+            }
+
+        
+        },timeInterval)
+    }
+    
+    // setSensorCallBack() {
+    //     console.log("sercam sensor callback assigned")
+    //     this.sensor.setShortPressCallback(()=>{
+    //         clearTimeout(this.rejectTimeOut)
+    //         this.rejection.removeAllListeners()
+    //         console.log("sensor triggered")
+    //         this.rejectTimeOut = setTimeout( ()=>{
+    //             console.log("rejector got time out")
+    //             this.rejector.reject(0)
+    //             // await postDataToAPI(`v1/work-order/${printingProcess.work_order_id}/assignment/${printingProcess.assignment_id}/serialization/validate`,{ 
+    //             //     accuracy:0,
+    //             //     status:"rejected",
+    //             //     code:null,
+    //             //     reason:"CAM_ERROR",
+    //             //     event_time:Date.now()
+    //             // }) 
+    //             this.rejection.removeAllListeners()
+    //         }, 500)
+    //         this.rejection.once("reject", ()=>{
+                
+    //             this.rejector.reject()
+    //             console.log("[Rejector] an object is rejected")
+    //             this.rejection.removeAllListeners()
+    //         })
+    //         this.rejection.once("pass", ()=>{
+    //             console.log("[Rejector] an object is passed")
+    //             this.rejection.removeAllListeners()
+                
+    //         })
+    //     })
+    // }
    async setHealthCheckInterval(){
         this.healthCheckInterval= setInterval(() => {
             try {
@@ -186,11 +281,17 @@ export default class serCam {
     }
 
     async receiveData(data) {
+        clearTimeout(this.rejectTimeOut)
         console.log("String2 : ",data)
         const check = this.checkFormat(data)
         
             if(!check.result){
-                this.rejector.reject();
+                
+                this.rejection.emit("reject")
+                console.log("emit reject")
+            }else{
+                this.rejection.emit("pass")
+                console.log("emit pass")
             }
             await postDataToAPI(`v1/work-order/${printingProcess.work_order_id}/assignment/${printingProcess.assignment_id}/serialization/validate`,{ 
                 accuracy:isNaN(data.accuracy)?0:data.accuracy,
@@ -201,6 +302,7 @@ export default class serCam {
             }) 
     
     }
+    
         
 }
 
