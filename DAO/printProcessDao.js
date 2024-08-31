@@ -318,11 +318,12 @@ export default class printProcess {
             fetchResult.data.forEach(serialization => {
                 queue.enqueue(serialization);
             });
+            // if (queue.size()<10){this.completion=true;}
             console.log("[Printing Process] Data enqueued successfully.");
         } else if (fetchResult.status === 'no_data_found') {
             console.log("[Printing Process] No data found to enqueue.");
             this.serializationQueue2.clear()
-            this.completion=true;
+            // this.completion=true;
         } else if (fetchResult.status === 'max_retries_reached') {
             console.error("[Printing Process] Failed to fetch data after maximum retries.");
             this.abort()
@@ -416,7 +417,7 @@ export default class printProcess {
                             { $set: { status : this.sampling?"SAMPLING":"PRINTING", update_at: Date.now()} } // update the status of the printed code upon pusing to buffer 
                             )
                 this.full_code_queue.enqueue(serialization.full_code)
-                this.serializationQueue1.enqueue(serialization)
+                // this.serializationQueue1.enqueue(serialization)
                 this.lastSerId = serialization.id
                 clearTimeout(updateTimeOut)
                 serialization = await this.getDataBySmallestId(this.db)
@@ -599,22 +600,28 @@ export default class printProcess {
                 // console.log("still not completion")
                 let refillFlag= false;
                 if(this.serializationQueue1.isEmpty()){
-                    console.log("filling up ser queue")
-                    console.time('Spread Operator');
+                    console.log("SerQueue1 needs to be filled")
+                    // console.time('Spread Operator');
                     console.log("Queue 2 size ", this.serializationQueue2.size())
                     console.log("queue2 before deq :",this.serializationQueue2)
-                    const queueLen = this.serializationQueue2.size();
-                    for(let i =0 ; i<queueLen ;i++){
-                        this.serializationQueue1.enqueue(this.serializationQueue2.dequeue())
+                    if (!this.serializationQueue2.isEmpty()){ 
+                        const queueLen = this.serializationQueue2.size();
+                        for(let i =0 ; i<queueLen ;i++){
+                            this.serializationQueue1.enqueue(this.serializationQueue2.dequeue())
+                        }
+                    }else{
+                        console.log("serQueue2 is empty too, means no data left in db")
                     }
+                    
                     // console.log("queue2 after dqe :",this.serializationQueue2)
-                    console.timeEnd('Spread Operator');
+                    // console.timeEnd('Spread Operator');
                     this.serializationQueue2.clear()
                     refillFlag=true;
                     this.processAndEnqueueData(this.db,this.lastSerId,this.serializationQueue2)
                 }
-                console.log("queue1 after copy :",this.serializationQueue1)
-                if (this.serializationQueue1.size()<10 && refillFlag===true) {
+                console.log("queue1 after copy :",this.serializationQueue1) // after coppying the 
+                if (this.serializationQueue1.isEmpty() && refillFlag===true) {
+                    console.log("SerQueue1 is still empty after filled with serQueue2")
                     console.log("[Printing Process] entering completion phase");
                     this.completion=true;
                     
@@ -625,7 +632,7 @@ export default class printProcess {
                     console.log("[Printing Process] Data retrieved:", serialization);
                 
                     try {
-                        P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code])
+                        let P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code])
                         if (P_status==="now full" ||P_status==="no errors"  ){
                             if (!this.error_full_code_queue.isEmpty() && P_status==="now full"){
                                 const error_full_code = this.error_full_code_queue.dequeue()
