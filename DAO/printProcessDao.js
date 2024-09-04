@@ -595,9 +595,11 @@ export default class printProcess {
         const release =  await mutex.acquire();
         console.log("[Printing Process] an object is passing the printer sensor")
         if (this.printer.isOccupied){
-            // console.log("still occupied")
+            console.log("still occupied")
             if(!this.completion){ 
-                // console.log("still not completion")
+                console.log("still not completion")
+                console.log("queue1 :", this.serializationQueue1)
+                console.log("queue2 :", this.serializationQueue2)
                 let refillFlag= false;
                 if(this.serializationQueue1.isEmpty()){
                     console.log("SerQueue1 needs to be filled")

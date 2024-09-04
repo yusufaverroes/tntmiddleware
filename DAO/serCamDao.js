@@ -40,6 +40,9 @@ export default class serCam {
         
         this.rejectTimeOut=null
 
+        this.passCounter=0;
+
+        this.start_time=null;
        
         
 
@@ -69,12 +72,34 @@ export default class serCam {
                 this.rejection.once("reject", async ()=>{
                     
                     await this.rejector.reject()
-                    console.log("[Rejector] an object is rejected")
+                    if(this.start_time){
+                        
+                        let process_time= process.hrtime(this.start_time);
+                        // console.log(process_time)
+                        console.log("process time for reject: ", process_time[0] * 1000 + process_time[1] / 1000000)
+                        this.start_time=null;
+                        
+                    }else{
+                        console.log("overlapping happens")
+                    }
+                    console.log("[SerCam] an object is rejected")
+                    
                     this.rejection.removeAllListeners()
                     this.setIntervalSensorReading(50);
                 })
                 this.rejection.once("pass", async ()=>{
-                    console.log("[Rejector] an object is passed")
+
+                    if(this.start_time){
+                        let process_time= process.hrtime(this.start_time);
+                        // console.log(process_time)
+                        console.log("process time for passed: ", process_time[0] * 1000 + process_time[1] / 1000000)
+                        this.start_time=null;
+                        console.log("[SerCam] an object is rejected")
+                    }else{
+                        console.log("overlapping happens")
+                    }
+                    console.log("[SerCam] an object is passed")
+
                     this.rejection.removeAllListeners()
                     while(this.line.getValue()===1){
                         await new Promise(resolve => setTimeout(resolve, 50));
@@ -206,7 +231,7 @@ export default class serCam {
     }
     listenForResponses() {
         this.socket.on('data', (response) => {
-            
+            this.start_time= process.hrtime();
 
             clearInterval(this.healthCheckInterval);
             if (response) {
@@ -282,7 +307,7 @@ export default class serCam {
 
     async receiveData(data) {
         clearTimeout(this.rejectTimeOut)
-        console.log("String2 : ",data)
+        // console.log("String2 : ",data)
         const check = this.checkFormat(data)
         
             if(!check.result){
@@ -290,8 +315,10 @@ export default class serCam {
                 this.rejection.emit("reject")
                 console.log("emit reject")
             }else{
+                
                 this.rejection.emit("pass")
-                console.log("emit pass")
+                this.passCounter++;
+                console.log("passed object counts: ", this.passCounter)
             }
             await postDataToAPI(`v1/work-order/${printingProcess.work_order_id}/assignment/${printingProcess.assignment_id}/serialization/validate`,{ 
                 accuracy:isNaN(data.accuracy)?0:data.accuracy,

@@ -72,12 +72,12 @@ const serialCamera =  new serCam(process.env.SERIALIZATION_CAM_IP,process.env.SE
 
 
 
-const healthChecksWs = new WebSocketClient(process.env.HEALTH_CHECKS_WEBSOCKET_EP, null,"middleware") // instancing websocket client class for healthCheks
+const healthChecksWs = new WebSocketClient(process.env.HEALTH_CHECKS_WEBSOCKET_EP, null,"middleware", "HealthChekWS") // instancing websocket client class for healthCheks
 
 
-const AggCamWsData = new WebSocketClient(process.env.WS_IP, process.env.WS_PORT,"client2") // instancing websocket client class for aggregation
+const AggCamWsData = new WebSocketClient(process.env.WS_IP, process.env.WS_PORT,"client2", "AggCamWsData") // instancing websocket client class for aggregation
 // await AggCamWsData.connect()
-const AggCamWsStatus = new WebSocketClient(process.env.WS_IP, process.env.WS_PORT,"client3") // instancing websocket client class for aggregation
+const AggCamWsStatus = new WebSocketClient(process.env.WS_IP, process.env.WS_PORT,"client3", "AggCamWsStatus") // instancing websocket client class for aggregation
 
 
 const aggCam = new AggregationCam(AggCamWsData, AggCamWsStatus, yellowButton)// instancing aggregation cam class using wsAggregation instance

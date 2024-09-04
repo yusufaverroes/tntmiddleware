@@ -1,12 +1,13 @@
 import WebSocket from 'ws';
 
 class WebSocketClient {
-  constructor(ip, port, clientId) {
+  constructor(ip, port, clientId,clientName="websocket") {
     this.ip = ip;
     this.port = port;
     this.clientId = clientId;
     this.status = 'disconnected';
     this.ws = null;
+    this.clientName=clientName
   }
 
   connect() {
@@ -19,7 +20,7 @@ class WebSocketClient {
           
         }
         const url = this.port===null?this.ip:`ws://${this.ip}:${this.port}`;
-        console.log("[websocket] url :", url)
+        console.log(`[${this.clientName}] url :`, url)
         const headers = {
           'Client-ID': this.clientId
         };
@@ -32,14 +33,14 @@ class WebSocketClient {
         });
   
         this.ws.once('error', (error) => {
-          console.log("[Websocket] disconnected")
+          console.log(`[${this.clientName}] disconnected`)
           this.status = 'disconnected';
           
           reject(error);
         });
   
         this.ws.once('close', () => {
-          console.log("[Websocket] disconnected")
+          console.log(`[${this.clientName}] disconnected`)
           this.status = 'disconnected';
         }); 
       } catch (error) {
@@ -62,7 +63,7 @@ class WebSocketClient {
       this.ws.on('message', callback);
       console.log("callback ws assigned by ",name )
     } else {
-      console.error('WebSocket is not initialized.');
+      console.error(`[${this.clientName}] WebSocket is not initialized.`);
     }
   }
 
@@ -71,7 +72,7 @@ class WebSocketClient {
       this.ws.close();
       this.status = 'disconnected';
     } else {
-      console.error('WebSocket is not initialized.');
+      console.error(`[${this.clientName}] WebSocket is not initialized.`);
     }
   }
 }

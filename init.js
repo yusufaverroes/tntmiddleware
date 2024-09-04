@@ -36,9 +36,9 @@ export default class Initialization {
     }
   
   }
-  async reRun(peripheral) {
+  async reRun(peripheral,reason) {
     // const release = await mutex.acquire();
-    console.log(`[Init] ${peripheral} is commiting a re-initialization`)
+    console.log(`[Init] ${peripheral} is commiting a re-initialization. Reason`, reason )
     problematicPeripheral =peripheral;
     try {
       if (!this.reRunning) {
@@ -345,7 +345,7 @@ export default class Initialization {
       
     }
     needToReInit.removeAllListeners()
-    needToReInit.once("pleaseReInit", (arg)=>{this.reRun(arg)})
+    needToReInit.once("pleaseReInit", (emitter,reason)=>{this.reRun(emitter,reason="no reason")})
     problematicPeripheral=null;
     console.log("[Initialisazion] inisialization has been completed")
   }

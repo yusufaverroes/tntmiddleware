@@ -34,10 +34,10 @@ class AggregationCam {
       this.hcInterval=setInterval(async ()=>{
 
         try{
-        console.log("checking aggcam")
+        // console.log("checking aggcam")
         const status = await this.getStatus()
         if (status!='Ok'){
-          needToReInit.emit("pleaseReInit", "AggCam")
+          needToReInit.emit("pleaseReInit", "AggCam", "")
           clearInterval(this.hcInterval)
         }else{
           // console.log("agg cam is ok")
@@ -140,40 +140,53 @@ class AggregationCam {
 
   }
 
+  // mergeResponses(messages) {
+  //   let combinedData = {};
+
+  //   messages.forEach((message) => {
+  //     const messageStr = message.toString(); // Convert Buffer to string
+  //     const pairs = messageStr.split(';');
+  //     pairs.forEach((pair) => {
+  //       if (pair) {
+  //         const [code, accuracy, x, y] = pair.split(':');
+
+  //         if (combinedData[code]) {
+  //           if (combinedData[code].accuracy < accuracy) {
+  //             combinedData[code] = { accuracy: parseInt(accuracy, 10), x: parseInt(x, 10), y: parseInt(y, 10) };
+  //           }
+  //         } else {
+  //           combinedData[code] = { accuracy: parseInt(accuracy, 10), x: parseInt(x, 10), y: parseInt(y, 10) };
+  //         }
+  //       }
+  //     });
+  //   });
   mergeResponses(messages) {
     let combinedData = {};
 
     messages.forEach((message) => {
-      const messageStr = message.toString(); // Convert Buffer to string
-      const pairs = messageStr.split(';');
-      pairs.forEach((pair) => {
-        if (pair) {
-          const [code, accuracy, x, y] = pair.split(':');
+        const messageStr = message.toString(); // Convert Buffer to string if necessary
+        const pairs = messageStr.split(';');
+        pairs.forEach((pair) => {
+            if (pair) {
+                const [code, accuracy, x, y] = pair.split(':');
 
-          if (combinedData[code]) {
-            if (combinedData[code].accuracy < accuracy) {
-              combinedData[code] = { accuracy: parseInt(accuracy, 10), x: parseInt(x, 10), y: parseInt(y, 10) };
+                // Init an empty array for the code if not exist yet
+                if (!combinedData[code]) {
+                    combinedData[code] = [];
+                }
+
+                // Add each code with its accuracy, x, and y values
+                combinedData[code].push({
+                    accuracy: parseInt(accuracy, 10),
+                    x: parseInt(x, 10),
+                    y: parseInt(y, 10),
+                });
             }
-          } else {
-            combinedData[code] = { accuracy: parseInt(accuracy, 10), x: parseInt(x, 10), y: parseInt(y, 10) };
-          }
-        }
-      });
+        });
     });
 
-    const result = {
-      scans: Object.entries(combinedData).map((code) => {
-        return {
-          "code": code[0],
-          "accuracy": code[1].accuracy,
-          "x": code[1].x,
-          "y": code[1].y
-        };
-      })
-    };
-
-    return result;
-  }
+    return combinedData;
+}
 
   runAggregateButton() {
     clearInterval(this.hcInterval)

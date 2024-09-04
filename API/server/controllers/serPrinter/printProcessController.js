@@ -1,8 +1,9 @@
 
-import  {printingProcess, printer,serialCamera} from '../../../../index.js';
+import  {printingProcess, printer,serialCamera, rejector} from '../../../../index.js';
 import printerTemplate from '../../../../utils/printerTemplates.js';
 import fs from 'fs';
 import { problematicPeripheral } from '../../../../init.js';
+// import serCam from '../../../../DAO/serCamDao.js';
 const pipePath = '/tmp/middleware-failsafe-pipe'
 
 
@@ -111,6 +112,8 @@ const startPrinting = async (req, res) => {
                   });
                 });
               });
+              rejector.rejectCounter=0;
+              serialCamera.passCounter=0;
             res.status(200).send({message:`Printing Process with assignment Id = ${printingProcess.assignment_id}, work order Id =${printingProcess.work_order_id}, and template Id = ${printingProcess.templateId} started`})
             
         }else{

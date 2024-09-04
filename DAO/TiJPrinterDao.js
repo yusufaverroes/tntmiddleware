@@ -428,7 +428,7 @@ export default class TIJPrinter {
                     }
                 } catch (error) {
                     // console.log(err);
-                    throw new Error (`[Printer] Download Remote Field Data error: ${error}`); 
+                    throw new Error (`[Printer] Download Remote Field Data error: ${error}, the message was :`, messages); 
                 }
             }
             
