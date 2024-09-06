@@ -10,7 +10,7 @@ const mutex = new Mutex();
 const pipePath = '/tmp/middleware-failsafe-pipe'
 export let problematicPeripheral=null;
 export default class Initialization {
-  constructor(DB,aggCamWsData,aggCamWsStatus, aggCam, printer, serCam, rejector, yellowLed, greenLed, yellowButton, greenButton ){
+  constructor(DB,aggCamWsData,aggCamWsStatus, aggCam, printer, serCam, rejector, yellowLed, greenLed, yellowButton, greenButton , backEndWS){
     this.MongoDB = DB
     this.aggCamWsData = aggCamWsData,
     this.aggCamWsStatus = aggCamWsStatus,
@@ -22,6 +22,7 @@ export default class Initialization {
     this.greenLed = greenLed,
     this.yellowButton = yellowButton,
     this.greenButton = greenButton,
+    this.backEndWS = backEndWS,
     this.reRunning = false;
     this.firstRun=true;
     this.state = {
@@ -36,7 +37,7 @@ export default class Initialization {
     }
   
   }
-  async reRun(peripheral,reason) {
+  async reRun(peripheral,reason="no reason") {
     // const release = await mutex.acquire();
     console.log(`[Init] ${peripheral} is commiting a re-initialization. Reason`, reason )
     problematicPeripheral =peripheral;
@@ -45,6 +46,7 @@ export default class Initialization {
         this.reRunning = true;
         this.state.rejectorCheck = false;
         this.state.connectingToDB = true;
+        
         await this.run();
         this.reRunning = false;
       }
@@ -95,8 +97,20 @@ export default class Initialization {
           }
           let res = await getDataToAPI("health-check");
           if(res==null || res.status!=HttpStatusCode.Ok){
+            this.backEndWS.status='disconnected'
             throw new Error("Server is not ready")
           }
+          if(this.backEndWS.status==='disconnected'){
+            
+            await this.backEndWS.connect()
+            this.backEndWS.ws.on('message',(message)=>{
+              const str = message.toString()
+              // console.log("Incoming HealthCheck from BE :", str)
+              this.backEndWS.sendMessage(str)
+            })
+          }
+          
+
           
           this.state.connectingToDB=false;
           this.state.connectingToWS=true;
@@ -127,7 +141,7 @@ export default class Initialization {
           }
           clearTimeout(wsAndAggTimeOut)
           wsAndAggTimeOut=null;
-          await this.aggCam.setCallBack();
+          this.aggCam.setCallBack();
           this.state.connectingToWS=false
           this.state.connectingToAggCam=true;
           if (retryDelay>0){
@@ -140,7 +154,7 @@ export default class Initialization {
           this.greenLed.setState('off')
           if (wsAndAggTimeOut===null){
             wsAndAggTimeOut=setTimeout(()=>{
-              console.log("RESTARTING WSANDAGG SERVICE")
+              console.log("[Init] RESTARTING WSANDAGG SERVICE")
               child.exec(`sudo systemctl restart wsAndAgg.service`)
               wsAndAggTimeOut=null;
             },60000)
@@ -282,6 +296,9 @@ export default class Initialization {
           if (this.aggCamWsData.status==='connected'){
             console.log("[Init] Aggregation cam. websocoket for data connection is finalized")
           }else{throw new Error("Aggregation WS for data")}
+          if (this.backEndWS.status==='connected'){
+            console.log("[Init] BE's websocoket for data connection is finalized")
+          }else{throw new Error("Aggregation WS for BE")}
           if(this.aggCamWsStatus.status==='connected'){
             console.log("[Init] Aggregation cam. websocoket for status connection is finalized")
           }else{throw new Error("Aggregation WS for status")} 
@@ -345,7 +362,7 @@ export default class Initialization {
       
     }
     needToReInit.removeAllListeners()
-    needToReInit.once("pleaseReInit", (emitter,reason)=>{this.reRun(emitter,reason="no reason")})
+    needToReInit.once("pleaseReInit", (...args)=>{console.log("arguments:",args);this.reRun(...args)})
     problematicPeripheral=null;
     console.log("[Initialisazion] inisialization has been completed")
   }

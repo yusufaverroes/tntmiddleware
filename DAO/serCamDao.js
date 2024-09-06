@@ -59,45 +59,46 @@ export default class serCam {
                 this.rejectTimeOut = setTimeout( async ()=>{
                     console.log("rejector got time out")
                     await this.rejector.reject(0)
-                    // await postDataToAPI(`v1/work-order/${printingProcess.work_order_id}/assignment/${printingProcess.assignment_id}/serialization/validate`,{ 
-                    //     accuracy:0,
-                    //     status:"rejected",
-                    //     code:null,
-                    //     reason:"CAM_ERROR",
-                    //     event_time:Date.now()
-                    // }) 
+                    await postDataToAPI(`v1/work-order/${printingProcess.work_order_id}/assignment/${printingProcess.assignment_id}/serialization/validate`,{ 
+                        accuracy:0,
+                        status:"rejected",
+                        code:null,
+                        reason:"CAM_ERROR",
+                        event_time:Date.now()
+                    }) 
                     this.rejection.removeAllListeners()
                     this.setIntervalSensorReading(50);
-                }, 254)
+                }, 1000)
+
                 this.rejection.once("reject", async ()=>{
                     
-                    await this.rejector.reject()
-                    if(this.start_time){
+                    this.rejector.reject()
+                    // if(this.start_time){
                         
-                        let process_time= process.hrtime(this.start_time);
-                        // console.log(process_time)
-                        console.log("process time for reject: ", process_time[0] * 1000 + process_time[1] / 1000000)
-                        this.start_time=null;
+                    //     let process_time= process.hrtime(this.start_time);
+                    //     // console.log(process_time)
+                    //     console.log("process time for reject: ", process_time[0] * 1000 + process_time[1] / 1000000)
+                    //     this.start_time=null;
                         
-                    }else{
-                        console.log("overlapping happens")
-                    }
-                    console.log("[SerCam] an object is rejected")
+                    // }else{
+                    //     console.log("overlapping happens")
+                    // }
+                    // console.log("[SerCam] an object is rejected")
                     
                     this.rejection.removeAllListeners()
                     this.setIntervalSensorReading(50);
                 })
                 this.rejection.once("pass", async ()=>{
 
-                    if(this.start_time){
-                        let process_time= process.hrtime(this.start_time);
-                        // console.log(process_time)
-                        console.log("process time for passed: ", process_time[0] * 1000 + process_time[1] / 1000000)
-                        this.start_time=null;
-                        console.log("[SerCam] an object is rejected")
-                    }else{
-                        console.log("overlapping happens")
-                    }
+                    // if(this.start_time){
+                    //     let process_time= process.hrtime(this.start_time);
+                    //     // console.log(process_time)
+                    //     console.log("process time for passed: ", process_time[0] * 1000 + process_time[1] / 1000000)
+                    //     this.start_time=null;
+                    //     console.log("[SerCam] an object is rejected")
+                    // }else{
+                    //     console.log("overlapping happens")
+                    // }
                     console.log("[SerCam] an object is passed")
 
                     this.rejection.removeAllListeners()
@@ -231,7 +232,7 @@ export default class serCam {
     }
     listenForResponses() {
         this.socket.on('data', (response) => {
-            this.start_time= process.hrtime();
+            // this.start_time= process.hrtime();
 
             clearInterval(this.healthCheckInterval);
             if (response) {

@@ -126,7 +126,8 @@ export default class printProcess {
                         }, 
                         {
                             '$match': {
-                                'status': 'SENT_TO_PRINTER', 
+                                'status': 'SENT_TO_PRINTER',
+                                'type': "PRIMARY",
                                 'work_order_id': this.work_order_id, 
                                 'assignment_id': this.assignment_id
                             }
@@ -140,8 +141,9 @@ export default class printProcess {
                 const result = await Promise.race([queryPromise, timeoutPromise]);
     
                 this.mongoDB.setHealthCheck();
-    
+                // console.log(result.length)
                 if (result.length === 1) {
+                    
                     return { id: result[0]._id, full_code: result[0].full_code, SN: result[0].code };
                 } else {
                     return { status: 'no_data_found' }; // No data found in the database
@@ -403,9 +405,10 @@ export default class printProcess {
             console.log("response from sending 01", ress1)
             await new Promise(resolve => setTimeout(resolve, 1000));
             console.log("[Printing Process] filling up the first 10 buffers...")
-            while (serialization && (P_status === "no errors" || P_status=== "still full")){ // filling up the buffer first
-                
-                P_status = await this.printer.sendRemoteFieldData([`SN ${serialization.SN}`, serialization.full_code]) // goes to printer buffer
+            while (serialization.status === undefined && (P_status === "no errors" || P_status=== "still full")){ // filling up the buffer first
+                const messages = [`SN ${serialization.SN}`, serialization.full_code]
+                console.log("[Printing Process] messages to be sent", messages)
+                P_status = await this.printer.sendRemoteFieldData(messages) // goes to printer buffer
                 this.expectedBufferCount++;
                 let updateTimeOut = setTimeout(()=>{
                     this.dbManualHealthCheck()
@@ -598,8 +601,8 @@ export default class printProcess {
             console.log("still occupied")
             if(!this.completion){ 
                 console.log("still not completion")
-                console.log("queue1 :", this.serializationQueue1)
-                console.log("queue2 :", this.serializationQueue2)
+                // console.log("queue1 :", this.serializationQueue1)
+                // console.log("queue2 :", this.serializationQueue2)
                 let refillFlag= false;
                 if(this.serializationQueue1.isEmpty()){
                     console.log("SerQueue1 needs to be filled")

@@ -1,5 +1,5 @@
 import WebSocket from 'ws';
-
+import { needToReInit } from '../utils/globalEventEmitter.js';
 class WebSocketClient {
   constructor(ip, port, clientId,clientName="websocket") {
     this.ip = ip;
@@ -8,17 +8,20 @@ class WebSocketClient {
     this.status = 'disconnected';
     this.ws = null;
     this.clientName=clientName
+    this.autoReInit = false;
   }
 
   connect() {
     return new Promise((resolve, reject) => {
       try {
         if(this.ws){
+          
           this.ws.removeAllListeners();
           this.ws.terminate();
           this.ws.close();
           
         }
+        this.ws = null;
         const url = this.port===null?this.ip:`ws://${this.ip}:${this.port}`;
         console.log(`[${this.clientName}] url :`, url)
         const headers = {
@@ -29,20 +32,32 @@ class WebSocketClient {
   
         this.ws.once('open', () => {
           this.status = 'connected';
+          this.ws.once('error', (error) => {
+            // console.log(`[${this.clientName}] disconnected with error`, error)
+            this.status = 'disconnected';
+            if(this.autoReInit){
+              needToReInit.emit("pleaseReInit", this.clientName, error)
+            }
+            
+          });
+    
+          this.ws.once('close', () => {
+            console.log(`[${this.clientName}] disconnected`)
+            this.status = 'disconnected';
+            if(this.autoReInit){
+              needToReInit.emit("pleaseReInit", this.clientName, "Disconnected")
+            }
+          });
           resolve();
         });
   
         this.ws.once('error', (error) => {
-          console.log(`[${this.clientName}] disconnected`)
+          console.log(`[${this.clientName}] disconnected with error`, error)
           this.status = 'disconnected';
           
           reject(error);
         });
-  
-        this.ws.once('close', () => {
-          console.log(`[${this.clientName}] disconnected`)
-          this.status = 'disconnected';
-        }); 
+   
       } catch (error) {
         reject(error)
       }

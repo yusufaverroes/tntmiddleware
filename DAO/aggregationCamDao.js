@@ -37,7 +37,7 @@ class AggregationCam {
         // console.log("checking aggcam")
         const status = await this.getStatus()
         if (status!='Ok'){
-          needToReInit.emit("pleaseReInit", "AggCam", "")
+          needToReInit.emit("pleaseReInit", "AggCam")
           clearInterval(this.hcInterval)
         }else{
           // console.log("agg cam is ok")
@@ -52,14 +52,21 @@ class AggregationCam {
       },this.normalOperationFlag?this.hcIntervalTime+this.hcIntervalTolerance:this.hcIntervalTime)
 
   }
-  async setCallBack(){
-    
-    this.handleMessageData = await this.handleMessageData.bind(this);
-   await this.wscForData.receiveMessage(this.handleMessageData);
+   setCallBack(){
+      if (this.wscForData.ws) {
+        this.wscForData.ws.removeListener('message', this.handleMessageData);
+    }
+
+    if (this.wscForStatus.ws) {
+        this.wscForStatus.ws.removeListener('message', this.handleMessageStatus);
+    }
+
+    this.handleMessageData =  this.handleMessageData.bind(this);
+    this.wscForData.receiveMessage(this.handleMessageData);
     this.receivedMessages = [];
 
-    this.handleMessageStatus = await this.handleMessageStatus.bind(this);
-    await this.wscForStatus.receiveMessage(this.handleMessageStatus);
+    this.handleMessageStatus =  this.handleMessageStatus.bind(this);
+     this.wscForStatus.receiveMessage(this.handleMessageStatus);
     this.status=null;
   }
   async getStatus() {
@@ -68,15 +75,13 @@ class AggregationCam {
       await this.wscForStatus.sendMessage('get_status');
       
       let timeout = setTimeout(() => {
-        console.log("reject bang")
         reject(`[Agg. Cam] Timeout occurred. No response from websocket`);
         
         // this.init?.reRun();
       }, 2000);
       this.responseEvent1.once('responseReceived', () => {
-        // console.log("event received")
         clearTimeout(timeout); 
-        // console.log(this.status)
+        console.log("Agg cam status : ",this.status)
         if(this.status!='Ok'){
           // this.init?.reRun();
         }
@@ -84,7 +89,9 @@ class AggregationCam {
       })
       })
     .catch((err) => {
+      console.log(`[Agg. Cam] Error on getting camera status: ${err}`)
       throw new Error(`[Agg. Cam] Error on getting camera status: ${err}`);
+      
     });
   }
 
@@ -97,7 +104,7 @@ class AggregationCam {
       let timeout1 = setTimeout(() => {
         this.normalOperationFlag=true;
         this.setHCIinterval()
-        console.log("set interval 1")
+
         reject(`[Agg. Cam] Timeout occurred. No response from websocket`);
       }, 2000);
       
@@ -105,7 +112,6 @@ class AggregationCam {
         clearTimeout(timeout1);
         this.normalOperationFlag=true;
         this.setHCIinterval()
-        console.log("set interval 2")
         resolve();
         // const result = this.mergeResponses(this.receivedMessages);
         // this.receivedMessages = [];
@@ -128,15 +134,15 @@ class AggregationCam {
       const result = this.mergeResponses(this.receivedMessages);
       console.log(`[AggCam] got 3 messages`);
       await postDataToAPI(`v1/work-order/active-job/aggregation`, {
-        serialization_codes: result.scans
+        scanned_code_map: result
       });
       this.receivedMessages = [];
     }
   }
   async handleMessageStatus(message) {
-    // console.log("Status received")
-    this.responseEvent1.emit('responseReceived')
     this.status=message.toString();
+    this.responseEvent1.emit('responseReceived')
+    
 
   }
 
@@ -184,14 +190,14 @@ class AggregationCam {
             }
         });
     });
-
+    console.log(JSON.stringify(combinedData))
     return combinedData;
 }
 
   runAggregateButton() {
     clearInterval(this.hcInterval)
     this.setHCIinterval();
-    console.log("set interval 3")
+
     this.aggButton.setShortPressCallback(async () => {
       console.log('[AggCam] Yellow short press detected.');
       this.receivedMessages = [];

@@ -73,7 +73,7 @@ const serialCamera =  new serCam(process.env.SERIALIZATION_CAM_IP,process.env.SE
 
 
 const healthChecksWs = new WebSocketClient(process.env.HEALTH_CHECKS_WEBSOCKET_EP, null,"middleware", "HealthChekWS") // instancing websocket client class for healthCheks
-
+healthChecksWs.autoReInit=true;
 
 const AggCamWsData = new WebSocketClient(process.env.WS_IP, process.env.WS_PORT,"client2", "AggCamWsData") // instancing websocket client class for aggregation
 // await AggCamWsData.connect()
@@ -103,7 +103,7 @@ const printer = new TIJPrinter(process.env.TiJPrinter_IP, process.env.TiJPrinter
 
 
 
-const init = new Initialization(mongoDB, AggCamWsData,AggCamWsStatus, aggCam, printer,serialCamera, rejector, yellowLed,greenLed,yellowButton,greenButton )
+const init = new Initialization(mongoDB, AggCamWsData,AggCamWsStatus, aggCam, printer,serialCamera, rejector, yellowLed,greenLed,yellowButton,greenButton, healthChecksWs )
 console.log("Initializing...")
 await init.run();
 // printer.init=init;
@@ -119,8 +119,8 @@ console.log("Initialization is completed !")
 
 const printingProcess = new printProcess(printer, mongoDB, printerSensor) // instancing printing process class with printer and mongoDB instances as the constructor
 console.log(`test master : ${printingProcess.templateName}`)
-await healthChecksWs.connect();
-const healthChecks = new HealthChecks(printer, serialCamera,aggCam, healthChecksWs);
+// await healthChecksWs.connect();
+// const healthChecks = new HealthChecks(printer, serialCamera,aggCam, healthChecksWs);
 
 
 // healthChecks.run()

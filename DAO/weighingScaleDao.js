@@ -18,12 +18,13 @@ function setHCweightInterval(){
   hcInterval=setInterval(async ()=>{
     try {
       console.log("HC weigher")
-      await readWeight();
+      
+      await readWeight()
     } catch (error) {
 
       if(errorOnReading){
-        console.log("[Weighing Scale] the weighing scale is unhealthy");
-        needToReInit.emit("pleaseReInit", "weighingScale")
+        // console.log("[Weighing Scale] the weighing scale is unhealthy", error);
+        // needToReInit.emit("pleaseReInit", "weighingScale", error)
       }
       
     }
@@ -97,6 +98,7 @@ async function readWeight() {
         let idx = 0;
         let nanCount = 0;
         let timeout=setTimeout(()=>{
+          errorOnReading=true;
           reject("no data is readable")
         },500)
         parser.on('data', data => {
