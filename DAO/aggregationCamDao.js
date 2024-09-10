@@ -2,6 +2,8 @@ import { postDataToAPI } from "../API/APICall/apiCall.js";
 import { EventEmitter } from 'events';
 import { needToReInit } from "../utils/globalEventEmitter.js";
 import { clearInterval } from "timers";
+import { exec } from 'child_process';
+
 
 class AggregationCam {
   constructor(wscForData,wscForStatus, aggButton) {
@@ -29,6 +31,24 @@ class AggregationCam {
     this.normalProcessFlag=false;
     
   }
+
+  pingIP(ipAddress) {
+    return new Promise((resolve, reject) => {
+      const command = `ping -c 1 -W 1 ${ipAddress}`;
+  
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+          reject(`Ping failed: ${stderr}`);
+        } else if (stdout.includes('1 packets transmitted, 1 received')) {
+          resolve(`Ping to ${ipAddress} successful`);
+        } else {
+          reject(`Ping to ${ipAddress} failed`);
+        }
+      });
+    });
+  };
+
+
   async setHCIinterval(){
       clearInterval(this.hcInterval)
       this.hcInterval=setInterval(async ()=>{
@@ -38,12 +58,13 @@ class AggregationCam {
         const status = await this.getStatus()
         if (status!='Ok'){
           needToReInit.emit("pleaseReInit", "AggCam")
+          await this.pingIP()
           clearInterval(this.hcInterval)
         }else{
           // console.log("agg cam is ok")
         }}
        catch (error) {
-        needToReInit.emit("pleaseReInit", "AggCamWS")
+        needToReInit.emit("pleaseReInit", "AggCamWS", error)
         console.log("agg cam is not ok",error)
         clearInterval(this.hcInterval)
         this.normalOperationFlag=false;
@@ -78,7 +99,7 @@ class AggregationCam {
         reject(`[Agg. Cam] Timeout occurred. No response from websocket`);
         
         // this.init?.reRun();
-      }, 2000);
+      }, 1000);
       this.responseEvent1.once('responseReceived', () => {
         clearTimeout(timeout); 
         console.log("Agg cam status : ",this.status)
@@ -174,7 +195,7 @@ class AggregationCam {
         const pairs = messageStr.split(';');
         pairs.forEach((pair) => {
             if (pair) {
-                const [code, accuracy, x, y] = pair.split(':');
+                const [code, accuracy, x, y, s] = pair.split(':');
 
                 // Init an empty array for the code if not exist yet
                 if (!combinedData[code]) {
@@ -186,6 +207,7 @@ class AggregationCam {
                     accuracy: parseInt(accuracy, 10),
                     x: parseInt(x, 10),
                     y: parseInt(y, 10),
+                    s:parseInt(s, 10),
                 });
             }
         });

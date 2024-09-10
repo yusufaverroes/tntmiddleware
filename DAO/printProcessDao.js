@@ -39,6 +39,7 @@ import { masterConfig } from '../index.js';
 import { clearInterval } from 'timers';
 import { clear, time } from 'console';
 import { needToReInit } from '../utils/globalEventEmitter.js';
+// import { emit } from 'process';
 export default class printProcess {
     constructor(printer, mongoDB, sensor) {
         this.printer = printer;
@@ -64,6 +65,8 @@ export default class printProcess {
         this.serializationQueue2= new Queue();
 
         this.lastSerId=null;
+
+        
         
     }
     async getCodeDetails(db) {
@@ -447,7 +450,7 @@ export default class printProcess {
             return err
         }
     }
-    async abort(){
+    async abort(reason="reason undifined"){
         while(this.printer.aBoxIsPrintedCompletely=false){
             await new Promise(resolve => setTimeout(resolve, 100))
         }
@@ -472,7 +475,7 @@ export default class printProcess {
             });
           });
           this.printer.stopPrint();
-          needToReInit.emit("pleaseReInit", "Printing Process")
+          needToReInit.emit("pleaseReInit", "Printing Process", reason)
           this.printer.isOccupied=false;
           
     }
@@ -593,7 +596,20 @@ export default class printProcess {
         release();
     }
 
-   
+   async getPrinterBuffNumWithRetries(currentRetry){
+    try {
+        return await this.printer.getBufNum()
+    } catch (error) {
+        if(currentRetry<3){
+            currentRetry++;
+            await new Promise(resolve => setTimeout(resolve, 300));
+            return await this.getPrinterBuffNumWithRetries(currentRetry)
+        }else{
+            throw new Error("unable get the buffer number")
+        }
+       
+    }
+   }
     async print3(){
         const release =  await mutex.acquire();
         console.log("[Printing Process] an object is passing the printer sensor")
@@ -607,8 +623,8 @@ export default class printProcess {
                 if(this.serializationQueue1.isEmpty()){
                     console.log("SerQueue1 needs to be filled")
                     // console.time('Spread Operator');
-                    console.log("Queue 2 size ", this.serializationQueue2.size())
-                    console.log("queue2 before deq :",this.serializationQueue2)
+                    // console.log("Queue 2 size ", this.serializationQueue2.size())
+                    // console.log("queue2 before deq :",this.serializationQueue2)
                     if (!this.serializationQueue2.isEmpty()){ 
                         const queueLen = this.serializationQueue2.size();
                         for(let i =0 ; i<queueLen ;i++){
@@ -624,10 +640,10 @@ export default class printProcess {
                     refillFlag=true;
                     this.processAndEnqueueData(this.db,this.lastSerId,this.serializationQueue2)
                 }
-                console.log("queue1 after copy :",this.serializationQueue1) // after coppying the 
+                // console.log("queue1 after copy :",this.serializationQueue1) // after coppying the 
                 if (this.serializationQueue1.isEmpty() && refillFlag===true) {
-                    console.log("SerQueue1 is still empty after filled with serQueue2")
-                    console.log("[Printing Process] entering completion phase");
+                    
+                    console.log("[Printing Process] entering completion phase, SerQueue1 is still empty after filled with serQueue2");
                     this.completion=true;
                     
                     
@@ -642,9 +658,13 @@ export default class printProcess {
                             if (!this.error_full_code_queue.isEmpty() && P_status==="now full"){
                                 const error_full_code = this.error_full_code_queue.dequeue()
                                 this.full_code_queue.enqueue(error_full_code)
-                            }else if(!this.error_full_code_queue.isEmpty() && P_status==="no errors"){
-                                console.log("[Printing Process] the previous error code was not entered to buffer")
+                                console.log("[Printing Process] error upon pushing data to buffer previously, but the previous code was entered to buffer")
+                            }else if(this.error_full_code_queue.size()===1 && P_status==="no errors"){
+                                console.log("[Printing Process] error upon pushing data to buffer previously, and the previous code was NOT entered to buffer")
                                 this.error_full_code_queue.dequeue();
+                            }else if(this.error_full_code_queue.size()>2 ){
+                                this.abort("consequtive error on pushing data to buffer")
+                                
                             }
                             this.full_code_queue.enqueue(serialization.full_code)
                             const updateResult = await this.updateStatus(this.db, serialization.id);
@@ -665,7 +685,7 @@ export default class printProcess {
                     } catch (error) {
                         console.log("[Printing Process] an error occured on pushing data to buffer", error)
                         this.error_full_code_queue.enqueue(serialization.full_code)
-                        const updateResult = await this.updateStatus(this.db, serialization.id, "ERROR_OCCURED");
+                        const updateResult = await this.updateStatus(this.db, serialization.id, "PENDING_VALIDATION");
                         if (updateResult.status === 'success') {
                             console.log("Status updated successfully.");
                         } else if (updateResult.status === 'not_found') {
@@ -683,11 +703,31 @@ export default class printProcess {
                         
                 }
             }
+            
+
+                if(this.error_full_code_queue.size()===1 && this.completion){
+                    try {
+
+                        let buffNum=  await this.getPrinterBuffNumWithRetries(0)
+                        console.log("printer buffer :",  buffNum)
+                        console.log("local buffer :",  this.full_code_queue.size())
+
+                        if(this.full_code_queue.size()<=buffNum){
+                            console.log("[Printing Process] error upon pushing data to buffer previously, but the previous code was entered")
+                        }else{
+                            console.log("[Printing Process] error upon pushing data to buffer previously, and the previous code was NOT entered")
+                        }
+                    } catch (error) {
+                        needToReInit.emit("pleaseReInit","Printing Process", error)
+                    }
+                }
+            
             try {
+                
                 const printed = this.full_code_queue.dequeue();
                 if(this.full_code_queue.isEmpty()){
                     while(this.printer.aBoxIsPrintedCompletely=false){
-                        await new Promise(resolve => setTimeout(resolve, 100))
+                        await new Promise(resolve => setTimeout(resolve, 100)) // waiting for the last box to be completely printed
                     }
                     fs.open(pipePath, 'w', (err, fd) => {
                         if (err) {

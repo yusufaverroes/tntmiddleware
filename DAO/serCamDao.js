@@ -72,7 +72,7 @@ export default class serCam {
 
                 this.rejection.once("reject", async ()=>{
                     
-                    this.rejector.reject()
+                    await this.rejector.reject()
                     // if(this.start_time){
                         
                     //     let process_time= process.hrtime(this.start_time);
@@ -154,7 +154,7 @@ export default class serCam {
                     this.socket.write(message, 'utf8');  // Sending as UTF-8 encoded string
                     this.healthCheckTimeout = setTimeout(()=>{
                     this.running = false;
-                    needToReInit.emit("pleaseReInit", "serCam"); // ask to re-init
+                    needToReInit.emit("pleaseReInit", "serCam", "timed out"); // ask to re-init
                     },500);
 
                 }
@@ -233,7 +233,7 @@ export default class serCam {
     listenForResponses() {
         this.socket.on('data', (response) => {
             // this.start_time= process.hrtime();
-
+            clearTimeout(this.rejectTimeOut)
             clearInterval(this.healthCheckInterval);
             if (response) {
                 let responseString = response.toString('utf8')
@@ -307,7 +307,7 @@ export default class serCam {
     }
 
     async receiveData(data) {
-        clearTimeout(this.rejectTimeOut)
+        
         // console.log("String2 : ",data)
         const check = this.checkFormat(data)
         

@@ -12,7 +12,7 @@ dotenv.config({ path: envPath });
 
 
 let hcInterval= null;
-const hcIntervalTime=33800;
+const hcIntervalTime=5000;
 const hcIntervalTolerance = 1000;
 let normalProcessFlag=false;
 
@@ -23,6 +23,7 @@ function setHCInterval(){
       // rizal change start
       const res = await axios.get(process.env.API_URL+"health-check")
       // rizal change end
+      // console.log("[API Call] BE server is healthy")
       if(res==null || res.status!=HttpStatusCode.Ok){
         throw new Error("Server is not ready")
       }

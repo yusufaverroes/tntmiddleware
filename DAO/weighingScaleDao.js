@@ -23,8 +23,8 @@ function setHCweightInterval(){
     } catch (error) {
 
       if(errorOnReading){
-        // console.log("[Weighing Scale] the weighing scale is unhealthy", error);
-        // needToReInit.emit("pleaseReInit", "weighingScale", error)
+        console.log("[Weighing Scale] the weighing scale is unhealthy", error);
+        needToReInit.emit("pleaseReInit", "weighingScale", error)
       }
       
     }
@@ -59,17 +59,24 @@ function setHCweightInterval(){
 //     _processQueue();
 //   }
 // }
-
+let ports= null;
+let parser = null;
 async function readWeight() {
-  const release =  await mutex.acquire();
+  errorOnReading = false;
+  const release = await mutex.acquire();
+
   return new Promise(async (resolve, reject) => {
     try {
-      const ports = await SerialPort.list();
+      // if (ports) {
+      //   ports.removeAllListeners();
+      //   ports = null;
+      // }
+      ports = await SerialPort.list();
       let MYport = null;
 
       ports.forEach(port => {
         if (port.vendorId === '067b' && port.productId === '23a3') {
-          // console.log('Found It');
+          console.log('Found It');
           MYport = port.path;
         }
       });
@@ -80,94 +87,111 @@ async function readWeight() {
           baudRate: 9600,
           autoOpen: false
         });
-
-        const parser = new ReadlineParser({ delimiter: '\n' });
+        if (parser) {
+          parser.removeAllListeners();
+          parser = null;
+        }
+        parser = new ReadlineParser({ delimiter: '\n' });
         port.pipe(parser);
-
+        
         port.open(err => {
           if (err) {
-            errorOnReading=true;
+            errorOnReading = true;
             release();
-            reject('Error opening port: ' + err.message);
+            return reject('Error opening port: ' + err.message);
           }
-          // console.log('[Weiging Scale] Port opened');
+          console.log('[Weighing Scale] Port opened');
         });
 
         let readings = [];
+        let retries = 0;
+        const maxRetries = 3;
         const maxReadings = 5;
-        let idx = 0;
         let nanCount = 0;
-        let timeout=setTimeout(()=>{
-          errorOnReading=true;
-          reject("no data is readable")
-        },500)
+        let timeout = setTimeout(() => {
+          errorOnReading = true;
+          port.close(() => {
+            release();
+            reject("No data readable after timeout");
+          });
+        }, 1000);  // Adjusted timeout
+
         parser.on('data', data => {
+          clearTimeout(timeout);  // Reset timeout with each data chunk
           const weight = parseFloat(data.trim());
-          // console.log('Data:', weight);
-          errorOnReading=true;
-          clearTimeout(timeout);
+
           if (!isNaN(weight)) {
             readings.push(weight);
-            idx++;
+
+            if (readings.length > 1 && Math.abs(readings[readings.length - 1] - readings[readings.length - 2]) > 0.005) {
+              port.close(() => {
+                if (retries < maxRetries) {
+                  retries++;
+                  console.log('Unstable reading, retrying...');
+                  readWeight().then(resolve).catch(reject);  // Retry
+                } else {
+                  errorOnReading = true;
+                  release();
+                  return reject('Too many retries for unstable readings.');
+                }
+              });
+            }
+
+            if (readings.length >= maxReadings) {
+              const average = readings.reduce((sum, value) => sum + value, 0) / readings.length;
+              console.log('[Weighing Scale] Average weight:', average);
+
+              port.close(err => {
+                if (err) {
+                  console.log('[Weighing Scale] Error closing port: ', err.message);
+                  release();
+                  return reject(err);
+                }
+                console.log('[Weighing Scale] Port closed successfully');
+                release();
+                resolve(average);
+              });
+            }
           } else {
             nanCount++;
             if (nanCount > 10) {
               port.close(() => {
-                errorOnReading=true;
-                release();
-                reject("too many NaNs");
+                if (retries < maxRetries) {
+                  retries++;
+                  console.log('Too many NaNs, retrying...');
+                  readWeight().then(resolve).catch(reject);  // Retry
+                } else {
+                  errorOnReading = true;
+                  release();
+                  return reject('Too many NaN values.');
+                }
               });
             }
           }
 
-          if (readings.length > 1 && Math.abs(readings[idx - 1] - readings[idx - 2]) > 0.0005) {
+          timeout = setTimeout(() => {
+            errorOnReading = true;
             port.close(() => {
               release();
-              return reject('unstable');
+              reject("No data readable after timeout");
             });
-          }
-
-          if (readings.length >= maxReadings) {
-            const average = readings.reduce((sum, value) => sum + value, 0) / readings.length;
-            // console.log('[Weighing Scale] Average weight:', average);
-
-            port.close(err => {
-              if (err) {
-                console.log('[Weighing Scale] Error closing port: ', err.message);
-                
-                release();
-                return reject(err);
-              }
-              // console.log('[Weighing Scale] Port closed successfully');
-              release();
-              resolve(average);
-            });
-          }
-        });
-
-        port.on('error', err => {
-          console.log('Error: ', err.message);
-          reject(err);
-        });
-
-        port.on('close', () => {
-          // console.log('Port closed');
+          }, 1000);  // Restart timeout
         });
 
       } else {
-        errorOnReading=true
-        
+        errorOnReading = true;
         release();
-        reject('No matching port found');
+        return reject('No matching port found');
       }
     } catch (err) {
-      errorOnReading=true;
+      errorOnReading = true;
       console.error('Error listing ports: ', err);
       release();
       reject(err);
     }
   });
 }
+
 
 const readPrinterButton = (button) => {
   clearInterval(hcInterval)
