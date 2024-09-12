@@ -1,38 +1,50 @@
 import { postDataToAPI } from '../API/APICall/apiCall.js';
 import { SerialPort, ReadlineParser } from 'serialport';
-import {Mutex} from 'async-mutex';
+import { Mutex } from 'async-mutex';
 import { needToReInit } from '../utils/globalEventEmitter.js';
 // let readingLock = false;
 // let readingQueue = [];
 const mutex = new Mutex();
-let hcInterval= null;
-const hcIntervalTime=33800;
+let hcInterval = null;
+const hcIntervalTime = 33800;
 const hcIntervalTolerance = 1000;
 
-let normalProcessFlag=false;
-let errorOnReading=false;
+let normalProcessFlag = false;
+let errorOnReading = false;
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-function setHCweightInterval(){
-  hcInterval=setInterval(async ()=>{
+
+// async function checkWeigher(tryCount) {
+//   try {
+//     await readWeight()
+//   } catch (error) {
+//     console.log(`[Weighiscale] retrying for ${tryCount} healthcheck`)
+//     if (tryCount >= 3) {
+//       throw error
+//     }
+//     await sleep(1000)
+//     await checkWeigher(tryCount+=1)
+//   }
+// }
+
+function setHCweightInterval() {
+  hcInterval = setInterval(async () => {
     try {
       console.log("HC weigher")
-      
+      // await checkWeigher(0)
       await readWeight()
     } catch (error) {
-
-      if(errorOnReading){
+      if (errorOnReading) {
         console.log("[Weighing Scale] the weighing scale is unhealthy", error);
         needToReInit.emit("pleaseReInit", "weighingScale", error)
       }
-      
     }
-    errorOnReading=false;
-    normalProcessFlag=false;
+    errorOnReading = false;
+    normalProcessFlag = false;
 
   }
-    ,normalProcessFlag?hcIntervalTime+hcIntervalTolerance:hcIntervalTime)
+    , normalProcessFlag ? hcIntervalTime + hcIntervalTolerance : hcIntervalTime)
 }
 // function _processQueue() {
 //   if (readingQueue.length > 0) {
@@ -47,7 +59,7 @@ function setHCweightInterval(){
 //       readingQueue.push({ resolve, reject });
 //     });
 //   }
-  
+
 //   readingLock = true;
 //   try {
 //     const weight = await _readWeight();
@@ -59,10 +71,12 @@ function setHCweightInterval(){
 //     _processQueue();
 //   }
 // }
-async function readWeight(retries = 3, delay = 1000) {
+
+async function readWeight(retries = 5, delay = 1000) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const weight = await _readWeight();
+
       return weight; // Successfully read weight
     } catch (error) {
       console.log(`Attempt ${attempt} failed: ${error}`);
@@ -76,14 +90,10 @@ async function readWeight(retries = 3, delay = 1000) {
   }
 }
 
-// Sleep function to use in retries
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 let parser=null;
 
 async function _readWeight() {
-  const release =  await mutex.acquire();
+  const release = await mutex.acquire();
   return new Promise(async (resolve, reject) => {
     try {
       const ports = await SerialPort.list();
@@ -110,8 +120,7 @@ async function _readWeight() {
 
         port.open(err => {
           if (err) {
-            errorOnReading=true;
-            release();
+            errorOnReading = true;
             reject('Error opening port: ' + err.message);
           }
           // console.log('[Weiging Scale] Port opened');
@@ -121,15 +130,16 @@ async function _readWeight() {
         const maxReadings = 5;
         let idx = 0;
         let nanCount = 0;
-        let timeout=setTimeout(()=>{
-          errorOnReading=true;
+        let timeout = setTimeout(() => {
+          errorOnReading = true;
           reject("no data is readable")
-        },500)
+        }, 500)
         parser.on('data', data => {
-          const weight = parseFloat(data.trim());
-          // console.log('Data:', weight);
-          errorOnReading=true;
           clearTimeout(timeout);
+          const weight = parseFloat(data.trim());
+          console.log('Data:', weight);
+          errorOnReading = true;
+
           if (!isNaN(weight)) {
             readings.push(weight);
             idx++;
@@ -137,8 +147,7 @@ async function _readWeight() {
             nanCount++;
             if (nanCount > 10) {
               port.close(() => {
-                errorOnReading=true;
-                release();
+                errorOnReading = true;
                 reject("too many NaNs");
               });
             }
@@ -146,7 +155,6 @@ async function _readWeight() {
 
           if (readings.length > 1 && Math.abs(readings[idx - 1] - readings[idx - 2]) > 0.0005) {
             port.close(() => {
-              release();
               return reject('unstable');
             });
           }
@@ -158,12 +166,10 @@ async function _readWeight() {
             port.close(err => {
               if (err) {
                 console.log('[Weighing Scale] Error closing port: ', err.message);
-                
-                release();
+
                 return reject(err);
               }
               // console.log('[Weighing Scale] Port closed successfully');
-              release();
               resolve(average);
             });
           }
@@ -179,17 +185,17 @@ async function _readWeight() {
         });
 
       } else {
-        errorOnReading=true
-        
-        release();
+        errorOnReading = true
+
         reject('No matching port found');
       }
     } catch (err) {
-      errorOnReading=true;
+      errorOnReading = true;
       console.error('Error listing ports: ', err);
-      release();
       reject(err);
     }
+  }).finally(() => {
+    release();
   });
 }
 const readPrinterButton = (button) => {
@@ -206,4 +212,4 @@ const readPrinterButton = (button) => {
   });
 }
 
-export default { readWeight, readPrinterButton, hcInterval, setHCweightInterval, normalProcessFlag};
+export default { readWeight, readPrinterButton, hcInterval, setHCweightInterval, normalProcessFlag };

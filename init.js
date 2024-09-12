@@ -79,7 +79,8 @@ export default class Initialization {
         });
       });
     });
-    
+
+    this.backEndWS.disconnect();
     let retryDelay =0;
     this.serCam.active=false;
     function sleep(s) {
@@ -87,7 +88,11 @@ export default class Initialization {
     }
     this.yellowLed.setState('blinkSlow')
     this.greenLed.setState('blinkSlow')
-
+    try {
+      await this.printer.stopPrint()
+    } catch (error) {
+      console.log("[Init] error on stopping printer", error)
+    }
     while (!end){
       // await sleep(5)
       if (this.state.connectingToDB){
@@ -100,15 +105,11 @@ export default class Initialization {
             this.backEndWS.status='disconnected'
             throw new Error("Server is not ready")
           }
-          if(this.backEndWS.status==='disconnected'){
+          // if(this.backEndWS.status==='disconnected'){
             
-            await this.backEndWS.connect()
-            this.backEndWS.ws.on('message',(message)=>{
-              const str = message.toString()
-              // console.log("Incoming HealthCheck from BE :", str)
-              this.backEndWS.sendMessage(str)
-            })
-          }
+          //   await this.backEndWS.connect()
+           
+          // }
           
 
           
@@ -203,6 +204,11 @@ export default class Initialization {
               await this.printer.connect();
               console.log("[Init] connected to printer")
             }
+            try {
+              await this.printer.stopPrint()
+            } catch (error) {
+              console.log("[Init] error on stopping printer", error)
+            }
             this.state.connectingToPrinter = false;
             this.state.connectingToSerCam = true;
             if (retryDelay>0){
@@ -296,6 +302,21 @@ export default class Initialization {
           if (this.aggCamWsData.status==='connected'){
             console.log("[Init] Aggregation cam. websocoket for data connection is finalized")
           }else{throw new Error("Aggregation WS for data")}
+
+            if(this.backEndWS.status==='disconnected'){
+            try {
+              await this.backEndWS.connect()
+              this.backEndWS.ws.on('message',(message)=>{
+                const str = message.toString()
+                console.log("Incoming HealthCheck from BE :", str)
+                this.backEndWS.sendMessage(str)
+              })
+            } catch (error) {
+              console.log("[Init] error while connecting to backend websocket",error)
+            }
+            
+           
+          }
           if (this.backEndWS.status==='connected'){
             console.log("[Init] BE's websocoket for data connection is finalized")
           }else{throw new Error("Aggregation WS for BE")}
@@ -323,6 +344,8 @@ export default class Initialization {
           this.state.rejectorCheck=false;
           this.aggCam.runAggregateButton();
           weighingScaleDao.readPrinterButton(this.greenButton);
+
+
           // fs.open(pipePath, 'w', (err, fd) => {
           //   if (err) {
           //     console.error('Failed to open named pipe:', err);

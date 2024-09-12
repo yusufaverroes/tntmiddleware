@@ -84,7 +84,9 @@ class WebSocketClient {
 
   disconnect() {
     if (this.ws) {
+      this.ws.removeAllListeners();
       this.ws.close();
+      
       this.status = 'disconnected';
     } else {
       console.error(`[${this.clientName}] WebSocket is not initialized.`);

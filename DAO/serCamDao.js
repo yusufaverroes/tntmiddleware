@@ -68,7 +68,7 @@ export default class serCam {
                     }) 
                     this.rejection.removeAllListeners()
                     this.setIntervalSensorReading(50);
-                }, 1000)
+                }, 242)
 
                 this.rejection.once("reject", async ()=>{
                     
