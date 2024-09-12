@@ -80,7 +80,7 @@ async function readWeight(retries = 3, delay = 1000) {
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-
+let parser=null;
 
 async function _readWeight() {
   const release =  await mutex.acquire();
@@ -102,8 +102,10 @@ async function _readWeight() {
           baudRate: 9600,
           autoOpen: false
         });
-
-        const parser = new ReadlineParser({ delimiter: '\n' });
+        if(parser){
+          parser.removeAllListeners('data');
+        }
+        parser = new ReadlineParser({ delimiter: '\n' });
         port.pipe(parser);
 
         port.open(err => {
@@ -167,12 +169,12 @@ async function _readWeight() {
           }
         });
 
-        port.on('error', err => {
+        port.once('error', err => {
           console.log('Error: ', err.message);
           reject(err);
         });
 
-        port.on('close', () => {
+        port.once('close', () => {
           // console.log('Port closed');
         });
 
