@@ -132,7 +132,10 @@ async function _readWeight() {
         let nanCount = 0;
         let timeout = setTimeout(() => {
           errorOnReading = true;
-          reject("no data is readable")
+          port.close(() => {
+            return reject("no data is readable")
+          });
+          
         }, 500)
         parser.on('data', data => {
           clearTimeout(timeout);

@@ -38,7 +38,7 @@ import {postDataToAPI, putDataToAPI} from '../API/APICall/apiCall.js';
 import { masterConfig } from '../index.js';
 import { clearInterval } from 'timers';
 import { clear, time } from 'console';
-import { needToReInit } from '../utils/globalEventEmitter.js';
+import { needToReInit, printingScanning } from '../utils/globalEventEmitter.js';
 // import { emit } from 'process';
 export default class printProcess {
     constructor(printer, mongoDB, sensor) {
@@ -444,6 +444,7 @@ export default class printProcess {
             this.sensor.setFallingEdgeCallback(()=> {
                 this.printer.aBoxIsPrintedCompletely=true;
             })
+            
             return "success"
         }catch(err){
             console.log(err)
@@ -696,6 +697,7 @@ export default class printProcess {
                         } else if (updateResult.status === 'max_retries_reached') {
                             console.error("Failed to update status after maximum retries:", updateResult.error);
                             this.abort();
+                            
                             release();
                             return false;
                         }
