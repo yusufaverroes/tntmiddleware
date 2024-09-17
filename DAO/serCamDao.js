@@ -1,9 +1,11 @@
 import net from 'net';
 import {postDataToAPI} from '../API/APICall/apiCall.js'
 import { printingProcess } from '../index.js';
-import { needToReInit } from '../utils/globalEventEmitter.js';
+import { needToReInit, printingScanning } from '../utils/globalEventEmitter.js';
 import { EventEmitter } from 'events';
 import pkg from 'node-libgpiod';
+import Queue from '../utils/queue.js';
+
 const { version, Chip, Line } = pkg;
 // import { eventNames } from 'process';
 import { clear } from 'console';
@@ -43,10 +45,23 @@ export default class serCam {
         this.passCounter=0;
 
         this.start_time=null;
-       
-        
 
+        this.printedTimeOutQueue=new Queue();
+        this.currentPrintedCode=null;
 
+        this.printProcess = null;
+
+    }
+    addPrintedTimeOut(printedData){
+        this.printedTimeOutQueue.enqueue({
+            printedData: printedData,
+            timeOut:setTimeout(()=>{
+                console.log("[SerCam] The camera sensor might be disconnected from GPIO, or the conveyor is not running")
+                this.printedTimeOutQueue.dequeue();
+            },4000)
+         
+        })
+            
     }
     setIntervalSensorReading(timeInterval){
         this.sensorReadingInterval = setInterval(()=>{
@@ -58,14 +73,35 @@ export default class serCam {
                 console.log("sensor triggered")
                 this.rejectTimeOut = setTimeout( async ()=>{
                     console.log("rejector got time out")
+                    let printed=null;
+                    if(!this.printedTimeOutQueue.isEmpty()){
+                        printed = this.printedTimeOutQueue.dequeue();
+                        clearTimeout(printed.timeOut)
+                        printed = printed.printedData;
+                    }else{
+                        if (!this.printProcess.full_code_queue.isEmpty()){
+                            printed=this.printProcess.full_code_queue.dequeue()
+                        }
+                        
+                        console.log("[serCam] the code wasn't detected as printed : ", printed)
+                    }
+
+                    
+
                     await this.rejector.reject(0)
+                    while(this.line.getValue===1){
+                        await this.rejector.reject(0)
+                    }
                     await postDataToAPI(`v1/work-order/${printingProcess.work_order_id}/assignment/${printingProcess.assignment_id}/serialization/validate`,{ 
                         accuracy:0,
                         status:"rejected",
-                        code:null,
+                        code:printed,
                         reason:"CAM_ERROR",
                         event_time:Date.now()
                     }) 
+                    while(this.line.getValue===1){
+                        await this.rejector.reject(242)
+                    }
                     this.rejection.removeAllListeners()
                     this.setIntervalSensorReading(50);
                 }, 242)
@@ -86,6 +122,9 @@ export default class serCam {
                     // console.log("[SerCam] an object is rejected")
                     
                     this.rejection.removeAllListeners()
+                    while(this.line.getValue()===1){
+                        await this.rejector.reject()
+                    }
                     this.setIntervalSensorReading(50);
                 })
                 this.rejection.once("pass", async ()=>{
@@ -173,6 +212,10 @@ export default class serCam {
                     this.socket.removeAllListeners();
                     this.socket.destroy();
                 }
+                printingScanning.removeAllListeners();
+                printingScanning.on("printed", (data)=>{
+                    this.addPrintedTimeOut(data)
+                })
                 this.socket = new net.Socket();
                 // this.socket.setKeepAlive(true, 1000);
                 this.socket.connect(this.port, this.ip, () => {
@@ -233,8 +276,10 @@ export default class serCam {
     listenForResponses() {
         this.socket.on('data', (response) => {
             // this.start_time= process.hrtime();
+            
             clearTimeout(this.rejectTimeOut)
             clearInterval(this.healthCheckInterval);
+            let printed=null;
             if (response) {
                 let responseString = response.toString('utf8')
                 if (responseString.startsWith("OK,ERRSTAT,")){
@@ -248,6 +293,15 @@ export default class serCam {
                         needToReInit.emit("pleaseReInit", "serCam");
                     }
                 }else{
+                    if(!this.printedTimeOutQueue.isEmpty()){
+                        printed = this.printedTimeOutQueue.dequeue();
+                        clearTimeout(printed.timeOut)
+                        printed = printed.printedData;
+                    }else{
+                        printed = this.printProcess.full_code_queue.dequeue()
+                        console.log("[serCam] the code wasn't detected as printed : ", printed)
+                    }
+                    
                     normalOperationFlag=true;
                     responseString = this.separateStringToObject(responseString)
                     
@@ -306,7 +360,7 @@ export default class serCam {
         return {result,reason,code}
     }
 
-    async receiveData(data) {
+    async receiveData(data, printed) {
         
         // console.log("String2 : ",data)
         const check = this.checkFormat(data)
@@ -316,10 +370,10 @@ export default class serCam {
                 this.rejection.emit("reject")
                 console.log("emit reject")
             }else{
-                
+
                 this.rejection.emit("pass")
-                this.passCounter++;
-                console.log("passed object counts: ", this.passCounter)
+                // this.passCounter++;
+                // console.log("passed object counts: ", this.passCounter)
             }
             await postDataToAPI(`v1/work-order/${printingProcess.work_order_id}/assignment/${printingProcess.assignment_id}/serialization/validate`,{ 
                 accuracy:isNaN(data.accuracy)?0:data.accuracy,

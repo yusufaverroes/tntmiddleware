@@ -727,6 +727,7 @@ export default class printProcess {
             try {
                 
                 const printed = this.full_code_queue.dequeue();
+                printingScanning.emit("printed",printed);
                 if(this.full_code_queue.isEmpty()){
                     while(this.printer.aBoxIsPrintedCompletely=false){
                         await new Promise(resolve => setTimeout(resolve, 100)) // waiting for the last box to be completely printed

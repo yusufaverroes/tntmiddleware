@@ -118,6 +118,7 @@ console.log("Initialization is completed !")
 // console.log(inks[0]);
 
 const printingProcess = new printProcess(printer, mongoDB, printerSensor) // instancing printing process class with printer and mongoDB instances as the constructor
+serialCamera.printProcess=printingProcess
 console.log(`test master : ${printingProcess.templateName}`)
 // await healthChecksWs.connect();
 // const healthChecks = new HealthChecks(printer, serialCamera,aggCam, healthChecksWs);
