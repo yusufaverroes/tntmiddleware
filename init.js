@@ -10,7 +10,7 @@ const mutex = new Mutex();
 const pipePath = '/tmp/middleware-failsafe-pipe'
 export let problematicPeripheral=null;
 export default class Initialization {
-  constructor(DB,aggCamWsData,aggCamWsStatus, aggCam, printer, serCam, rejector, yellowLed, greenLed, yellowButton, greenButton , backEndWS){
+  constructor(DB,aggCamWsData,aggCamWsStatus, aggCam, printer, serCam, rejector, yellowLed, greenLed, yellowButton, greenButton , backEndWS, printerSensor, serCamSensor){
     this.MongoDB = DB
     this.aggCamWsData = aggCamWsData,
     this.aggCamWsStatus = aggCamWsStatus,
@@ -25,6 +25,8 @@ export default class Initialization {
     this.backEndWS = backEndWS,
     this.reRunning = false;
     this.firstRun=true;
+    this.printerSensor= printerSensor;
+    this.serCamSensor = serCamSensor;
     this.state = {
       connectingToDB:false,
       connectingToWS:false,
@@ -44,10 +46,19 @@ export default class Initialization {
     try {
       if (!this.reRunning) {
         this.reRunning = true;
+        console.log("REJECTOR CHECK", rejectorCheck)
         if(rejectorCheck){
-          this.state.rejectorCheck = true;
-          this.state.connectingToDB = false;
-          this.firstRun = true;
+          this.firstRun=true;
+          this.state = {
+            connectingToDB:false,
+            connectingToWS:false,
+            connectingToAggCam:false,
+            connectingToPrinter:false,
+            connectingToSerCam:false,
+            weighingScaleCheck:false,
+            rejectorCheck:true,
+            finalChecks:false
+          }
           
         }else{
           this.state.rejectorCheck = false;
@@ -99,7 +110,7 @@ export default class Initialization {
     try {
       await this.printer.stopPrint()
     } catch (error) {
-      console.log("[Init] error on stopping printer", error)
+      console.log("[Init] errors on stopping printer", error)
     }
     while (!end){
       // await sleep(5)
@@ -279,6 +290,12 @@ export default class Initialization {
         this.yellowLed.setState('on');
         this.greenLed.setState('on');
         let greenButtonPressed=false
+        this.printerSensor.setShortPressCallback( async ()=> {
+          this.yellowLed.setState('blinkFast', 3);
+          await sleep(2)
+          console.log("[Init] printer sensor is connected")
+          this.yellowLed.setState('on');
+        });
         this.greenButton.setShortPressCallback(() => {
           console.log('Green short press detected.');
           greenButtonPressed=true
@@ -394,7 +411,7 @@ export default class Initialization {
     }
     needToReInit.removeAllListeners()
     needToReInit.once("pleaseReInit", (...args)=>{
-      // console.log("arguments:",args);
+      console.log("arguments:",args);
       this.reRun(...args)})
     problematicPeripheral=null;
     console.log("[Initialisazion] inisialization has been completed")

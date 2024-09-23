@@ -107,10 +107,10 @@ export default class TIJPrinter {
                         }
                     }
                 }).catch(error => {
-                    needToReInit.emit("pleaseReInit", "Printer",error)
+                    needToReInit.emit("pleaseReInit", "Printer",error, rejectorCheck)
                     this.disconnect();
                     clearInterval(this.healthCheckInterval)
-                    console.log("[Printer] printer is not healthy : ", error,rejectorCheck)
+                    console.log("[Printer] printer is not healthy : ", error)
                 });
         }
             , sendFlag ? this.hcTimekInterval + this.hcTimeTolerance : this.hcTimekInterval)

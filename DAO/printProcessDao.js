@@ -477,7 +477,7 @@ export default class printProcess {
             });
           });
           this.printer.stopPrint();
-          needToReInit.emit("pleaseReInit", "Printing Process", reason)
+          needToReInit.emit("pleaseReInit", "Printing Process", reason, true)
           this.printer.isOccupied=false;
           
     }

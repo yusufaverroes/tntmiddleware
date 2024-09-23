@@ -37,7 +37,7 @@ export default class serCam {
         this.chip = new Chip(4);
         this.line = new Line(this.chip, 5);
         this.line.requestInputMode();
-
+        
         this.setIntervalSensorReading(50);
         
         
