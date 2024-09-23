@@ -13,6 +13,7 @@ function removeSpacesAndNewlines(inputString) {
     return inputString.replace(/\s+/g, '');
 }
 let normalOperationFlag = false; //normal operation flag for healthcheck
+let printedTimeOutFlag = false;
 export default class serCam {
     constructor(ip, port, rejector) {
         this.init=null;
@@ -55,10 +56,28 @@ export default class serCam {
     addPrintedTimeOut(printedData){
         this.printedTimeOutQueue.enqueue({
             printedData: printedData,
-            timeOut:setTimeout(()=>{
-                console.log("[SerCam] The camera sensor might be disconnected from GPIO, or the conveyor is not running")
-                this.printedTimeOutQueue.dequeue();
-            },4000)
+            timeOut:setTimeout(async ()=>{
+                // this.printedTimeOutQueue.dequeue();
+                if(!printedTimeOutFlag){
+                    printedTimeOutFlag=true; 
+                    this.printedTimeOutQueue.dequeue();
+                       
+                    const currentPrintSignalCount = this.printedTimeOutQueue.size()
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                    if (currentPrintSignalCount<this.printedTimeOutQueue.size()){
+                        console.log("[SerCam] The camera sensor might be disconnected from GPIO, please check the connection")
+                        needToReInit.emit("pleaseReInit", "serCam", "sensor might be disconnected to GPIO", true); 
+                    }else{
+                        console.log("[SerCam] The camera sensor might be disconnected from GPIO or the conveyor is not running")
+                    }
+                    while(!this.printedTimeOutQueue.isEmpty()){
+                        const data = this.printedTimeOutQueue.dequeue()
+                        clearTimeout(data.timeOut)
+                    }
+                    printedTimeOutFlag=false;
+                }  
+                
+            },2000)
          
         })
             
@@ -70,21 +89,27 @@ export default class serCam {
                 clearTimeout(this.rejectTimeOut)
                 clearInterval(this.sensorReadingInterval)
                 this.rejection.removeAllListeners()
-                console.log("sensor triggered")
+                console.log("[serCam] sensor triggered")
+                let printed=null;
+                if(!this.printedTimeOutQueue.isEmpty()){
+                    printed = this.printedTimeOutQueue.dequeue();
+                    clearTimeout(printed.timeOut)
+                }
                 this.rejectTimeOut = setTimeout( async ()=>{
                     console.log("rejector got time out")
-                    let printed=null;
-                    if(!this.printedTimeOutQueue.isEmpty()){
-                        printed = this.printedTimeOutQueue.dequeue();
-                        clearTimeout(printed.timeOut)
-                        printed = printed.printedData;
-                    }else{
-                        if (!this.printProcess.full_code_queue.isEmpty()){
-                            printed=this.printProcess.full_code_queue.dequeue()
-                        }
+                    // let printed=null;
+                    // if(!this.printedTimeOutQueue.isEmpty()){
+                    //     printed = this.printedTimeOutQueue.dequeue();
+                    //     clearTimeout(printed.timeOut)
+                    //     printed = printed.printedData;
+                    // }
+                    //else{
+                    //     if (!this.printProcess.full_code_queue.isEmpty()){
+                    //         printed=this.printProcess.full_code_queue.dequeue()
+                    //     }
                         
-                        console.log("[serCam] the code wasn't detected as printed : ", printed)
-                    }
+                    //     console.log("[serCam] the code wasn't detected as printed : ", printed)
+                    // }
 
                     
 
@@ -95,7 +120,7 @@ export default class serCam {
                     await postDataToAPI(`v1/work-order/${printingProcess.work_order_id}/assignment/${printingProcess.assignment_id}/serialization/validate`,{ 
                         accuracy:0,
                         status:"rejected",
-                        code:printed,
+                        code:null,
                         reason:"CAM_ERROR",
                         event_time:Date.now()
                     }) 
@@ -279,7 +304,7 @@ export default class serCam {
             
             clearTimeout(this.rejectTimeOut)
             clearInterval(this.healthCheckInterval);
-            let printed=null;
+            // let printed=null;
             if (response) {
                 let responseString = response.toString('utf8')
                 if (responseString.startsWith("OK,ERRSTAT,")){
@@ -292,15 +317,17 @@ export default class serCam {
                         console.log("[Ser Cam] Camera error code found : ", responseString[2])
                         needToReInit.emit("pleaseReInit", "serCam");
                     }
-                }else{
-                    if(!this.printedTimeOutQueue.isEmpty()){
-                        printed = this.printedTimeOutQueue.dequeue();
-                        clearTimeout(printed.timeOut)
-                        printed = printed.printedData;
-                    }else{
-                        printed = this.printProcess.full_code_queue.dequeue()
-                        console.log("[serCam] the code wasn't detected as printed : ", printed)
-                    }
+                }
+                else{
+                    // if(!this.printedTimeOutQueue.isEmpty()){
+                    //     printed = this.printedTimeOutQueue.dequeue();
+                    //     clearTimeout(printed.timeOut)
+                    //     // printed = printed.printedData;
+                    // }
+                    // else{
+                    //     printed = this.printProcess.full_code_queue.dequeue()
+                    //     console.log("[serCam] the code wasn't detected as printed : ", printed)
+                    // }
                     
                     normalOperationFlag=true;
                     responseString = this.separateStringToObject(responseString)

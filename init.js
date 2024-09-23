@@ -37,16 +37,24 @@ export default class Initialization {
     }
   
   }
-  async reRun(peripheral,reason="no reason") {
+  async reRun(peripheral,reason="no reason", rejectorCheck=false) {
     // const release = await mutex.acquire();
-    console.log(`[Init] ${peripheral} is commiting a re-initialization. Reason`, reason )
+    console.log(`[Init] ${peripheral} is commiting a re-initialization. Reason`, reason)
     problematicPeripheral =peripheral;
     try {
       if (!this.reRunning) {
         this.reRunning = true;
-        this.state.rejectorCheck = false;
-        this.state.connectingToDB = true;
+        if(rejectorCheck){
+          this.state.rejectorCheck = true;
+          this.state.connectingToDB = false;
+          this.firstRun = true;
+          
+        }else{
+          this.state.rejectorCheck = false;
+          this.state.connectingToDB = true;
         
+        }
+        this.printer.isOccupied=false;
         await this.run();
         this.reRunning = false;
       }
@@ -385,7 +393,9 @@ export default class Initialization {
       
     }
     needToReInit.removeAllListeners()
-    needToReInit.once("pleaseReInit", (...args)=>{console.log("arguments:",args);this.reRun(...args)})
+    needToReInit.once("pleaseReInit", (...args)=>{
+      // console.log("arguments:",args);
+      this.reRun(...args)})
     problematicPeripheral=null;
     console.log("[Initialisazion] inisialization has been completed")
   }

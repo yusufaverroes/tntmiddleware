@@ -436,6 +436,7 @@ export default class printProcess {
             await this.processAndEnqueueData(this.db,this.lastSerId,this.serializationQueue2)
             console.log("BUF NUM : ",await this.printer.getBufNum())
             this.printer.isOccupied = true;
+            this.printer.localBufferCount= this.full_code_queue.size();
             this.sensor.setShortPressCallback( ()=> {
                 // console.log(this, this.print3)
                 this.printer.aBoxIsPrintedCompletely=false;
@@ -550,6 +551,7 @@ export default class printProcess {
             }
             try {
                 const printed = this.full_code_queue.dequeue();
+                
                 if(this.full_code_queue.isEmpty()){
                     while(this.printer.aBoxIsPrintedCompletely=false){
                         await new Promise(resolve => setTimeout(resolve, 100))
@@ -727,6 +729,7 @@ export default class printProcess {
             try {
                 
                 const printed = this.full_code_queue.dequeue();
+                this.printer.localBufferCount= this.full_code_queue.size()
                 printingScanning.emit("printed",printed);
                 if(this.full_code_queue.isEmpty()){
                     while(this.printer.aBoxIsPrintedCompletely=false){
