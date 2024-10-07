@@ -680,7 +680,7 @@ export default class printProcess {
                                 return false;
                             } else if (updateResult.status === 'max_retries_reached') {
                                 console.error("Failed to update status after maximum retries:", updateResult.error);
-                                this.abort();
+                                this.abort("Failed to update status after maximum retries:", updateResult.error);
                                 release();
                                 return false;
                             }
@@ -693,12 +693,12 @@ export default class printProcess {
                             console.log("Status updated successfully.");
                         } else if (updateResult.status === 'not_found') {
                             console.log("Document not found, no status update performed.");
-                            this.abort();
+                            this.abort("Document not found, no status update performed.");
                             release();
                             return false;
                         } else if (updateResult.status === 'max_retries_reached') {
                             console.error("Failed to update status after maximum retries:", updateResult.error);
-                            this.abort();
+                            this.abort("Failed to update status after maximum retries:", updateResult.error);
                             
                             release();
                             return false;
@@ -732,7 +732,7 @@ export default class printProcess {
                 this.printer.localBufferCount= this.full_code_queue.size()
                 printingScanning.emit("printed",printed);
                 if(this.full_code_queue.isEmpty()){
-                    while(this.printer.aBoxIsPrintedCompletely=false){
+                    while(this.printer.aBoxIsPrintedCompletely===false){
                         await new Promise(resolve => setTimeout(resolve, 100)) // waiting for the last box to be completely printed
                     }
                     fs.open(pipePath, 'w', (err, fd) => {
