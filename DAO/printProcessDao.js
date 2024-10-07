@@ -444,6 +444,7 @@ export default class printProcess {
             })
             this.sensor.setFallingEdgeCallback(()=> {
                 this.printer.aBoxIsPrintedCompletely=true;
+                console.log("falling edge detected")
             })
             
             return "success"
@@ -453,7 +454,7 @@ export default class printProcess {
         }
     }
     async abort(reason="reason undifined"){
-        while(this.printer.aBoxIsPrintedCompletely=false){
+        while(this.printer.aBoxIsPrintedCompletely===false){
             await new Promise(resolve => setTimeout(resolve, 100))
         }
         fs.open(pipePath, 'w', (err, fd) => {
@@ -706,7 +707,7 @@ export default class printProcess {
                     }
                         
                 }
-            }
+            } // end of not-completion phase
             
 
                 if(this.error_full_code_queue.size()===1 && this.completion){
@@ -733,8 +734,11 @@ export default class printProcess {
                 printingScanning.emit("printed",printed);
                 if(this.full_code_queue.isEmpty()){
                     while(this.printer.aBoxIsPrintedCompletely===false){
+                        // console.log("[printing process] waiting a box to be completely printed...")
                         await new Promise(resolve => setTimeout(resolve, 100)) // waiting for the last box to be completely printed
                     }
+                    await new Promise(resolve => setTimeout(resolve, 1000)) 
+                    console.log("printing is completed")
                     fs.open(pipePath, 'w', (err, fd) => {
                         if (err) {
                           console.error('Failed to open named pipe:', err);
@@ -762,7 +766,7 @@ export default class printProcess {
                     this.printer.isOccupied=false
                     console.log(`[Printing Process] printing process with assignment Id = ${this.assignment_id}, work order Id =${this.work_order_id} is completed! $`)
                     
-                    await this.printer.stopPrint();
+                    this.printer.stopPrint();
                     await postDataToAPI('v1/work-order/active-job/complete-print',{})  
                 }else{
                     await putDataToAPI(`v1/work-order/${this.work_order_id}/assignment/${this.assignment_id}/serialization/printed`,{ 

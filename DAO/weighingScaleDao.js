@@ -215,4 +215,4 @@ const readPrinterButton = (button) => {
   });
 }
 
-export default { readWeight, readPrinterButton, hcInterval, setHCweightInterval, normalProcessFlag };
+export default { _readWeight,readWeight, readPrinterButton, hcInterval, setHCweightInterval, normalProcessFlag };

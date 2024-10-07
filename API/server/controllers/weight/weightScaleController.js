@@ -3,9 +3,9 @@ import weighingScaleDao from "../../../../DAO/weighingScaleDao.js";
 const getWeight = async (req,res) =>{
     try{
         clearInterval(weighingScaleDao.hcInterval);
-        let weight= await weighingScaleDao.readWeight();
+        let weight= await weighingScaleDao._readWeight();
         for (let i =0 ; i<3;i++){
-             weight = await weighingScaleDao.readWeight();
+             weight = await weighingScaleDao._readWeight();
             
             if (typeof weight==='string' && i===2){
                 throw new Error('Weighing scale is not stable')

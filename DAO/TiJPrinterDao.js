@@ -99,13 +99,13 @@ export default class TIJPrinter {
             this.pingIP()
                 .then(response => console.log(response))
                 .then(async () => {
-                    if (this.isOccupied) {
-                        const bufferCount= await this.getBufNum()
-                        if (bufferCount<this.localBufferCount){
-                            rejectorCheck=true;
-                            throw new Error("Middleware possibly can't get signal from printer sensor")
-                        }
-                    }
+                    // if (this.isOccupied) {
+                    //     const bufferCount= await this.getBufNum()
+                    //     if (bufferCount<this.localBufferCount){
+                    //         rejectorCheck=true;
+                    //         throw new Error("Middleware possibly can't get signal from printer sensor")
+                    //     }
+                    // }
                 }).catch(error => {
                     needToReInit.emit("pleaseReInit", "Printer",error)
                     this.disconnect();
