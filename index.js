@@ -103,7 +103,7 @@ const printer = new TIJPrinter(process.env.TiJPrinter_IP, process.env.TiJPrinter
 
 
 
-const init = new Initialization(mongoDB, AggCamWsData,AggCamWsStatus, aggCam, printer,serialCamera, rejector, yellowLed,greenLed,yellowButton,greenButton, healthChecksWs )
+const init = new Initialization(mongoDB, AggCamWsData,AggCamWsStatus, aggCam, printer,serialCamera, rejector, yellowLed,greenLed,yellowButton,greenButton, healthChecksWs, printerSensor )
 console.log("Initializing...")
 await init.run();
 // printer.init=init;

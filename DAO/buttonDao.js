@@ -12,6 +12,7 @@ export default class Button {
 
     this.shortPressCallback = null;
     this.longPressCallback = null;
+    this.instantCallback = null;
     this.fallingEdgeCallback = null;
     
 
@@ -26,6 +27,7 @@ export default class Button {
     const value = this.line.getValue();  // Read the button value
 
     if (value === 1) {  // Button pressed
+      if (this.instantCallback && this.lastButtonState===0) {this.instantCallback()}
       if (!this.pressTimer) {
         this.lastPressTime = currentTime;
         this.pressTimer = setTimeout(() => {
@@ -58,6 +60,9 @@ export default class Button {
 
   setFallingEdgeCallback(callback) {
     this.fallingEdgeCallback = callback;
+  }
+  setInstantCallback(callback) {
+    this.instantCallback = callback;
   }
 
   cleanup() {

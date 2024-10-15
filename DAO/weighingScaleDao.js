@@ -158,6 +158,7 @@ async function _readWeight() {
 
           if (readings.length > 1 && Math.abs(readings[idx - 1] - readings[idx - 2]) > 0.0005) {
             port.close(() => {
+              errorOnReading=false;
               return reject('unstable');
             });
           }
