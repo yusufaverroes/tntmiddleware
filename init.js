@@ -5,6 +5,8 @@ import fs from 'fs';
 import {Mutex} from 'async-mutex'
 import { needToReInit } from "./utils/globalEventEmitter.js";
 import * as child from 'node:child_process'
+import crypto from "crypto"
+
 let wsAndAggTimeOut = null
 const mutex = new Mutex();
 const pipePath = '/tmp/middleware-failsafe-pipe'
@@ -41,6 +43,20 @@ export default class Initialization {
     // const release = await mutex.acquire();
     console.log(`[Init] ${peripheral} is commiting a re-initialization. Reason`, reason)
     problematicPeripheral =peripheral;
+    try {
+
+      const json = {
+        "request_id": crypto.randomUUID(),
+        "ERROR_CODE": peripheral.toUpperCase(),
+        "MESSAGE": reason
+      }
+      const str = JSON.stringify(json)
+      this.backEndWS.sendMessage(str)
+      console.log(str)
+    }catch(error){
+      console.log("[Init ] error on sending report to backend WS : ", error)
+    }
+   
     try {
       if (!this.reRunning) {
         this.reRunning = true;
@@ -87,7 +103,7 @@ export default class Initialization {
         });
       });
     });
-
+  
     this.backEndWS.disconnect();
     let retryDelay =0;
     this.serCam.active=false;
